@@ -49,6 +49,9 @@ State lives in your project under `.change-memory/`:
   summaries/       # archived/compacted history
 ```
 
+See [`examples/change-memory/`](examples/change-memory/) for a static sample of
+`session.md` and `index.json` so you can preview the format without a live install.
+
 ## Install
 
 1. Add this plugin from your Claude Code marketplace (or install locally).

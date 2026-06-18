@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "project_name": "demo-app",
+  "created_at": "2026-01-10T09:00:00.000Z",
+  "last_session_at": "2026-01-12T14:25:00.000Z",
+  "active_files": [
+    "src/server.ts",
+    "src/routes/auth.ts",
+    "src/db/migrations/0007_add_sessions.sql",
+    "src/middleware/rateLimit.ts",
+    "test/auth.test.ts"
+  ],
+  "recent_change_ids": [
+    "chg_20260112_142500_a1b2c3d4",
+    "chg_20260112_111200_55ee77aa",
+    "chg_20260111_173045_0df914c2",
+    "chg_20260110_090210_39be4584"
+  ],
+  "unresolved_items": [
+    "Add rate-limit headers to auth endpoints",
+    "Backfill session expiry for pre-migration rows"
+  ],
+  "constraints": [
+    "Keep AI context compact",
+    "Do not include full diffs by default",
+    "Load detailed patches only when explicitly needed"
+  ],
+  "max_bootstrap_tokens": 700,
+  "max_recent_changes": 10
+}
