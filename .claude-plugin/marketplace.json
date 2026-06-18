@@ -1,0 +1,28 @@
+{
+  "name": "change-memory-marketplace",
+  "owner": {
+    "name": "Change Memory contributors"
+  },
+  "metadata": {
+    "description": "Marketplace hosting the Change Memory plugin for Claude Code.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "change-memory",
+      "source": "./",
+      "description": "Compact, local memory of what changed in your project across Claude Code sessions. Stores semantic summaries and compressed patches without loading full diffs into context by default.",
+      "version": "0.1.0",
+      "category": "development",
+      "keywords": [
+        "claude-code",
+        "mcp",
+        "agent-memory",
+        "git-diff",
+        "context-management",
+        "token-optimization",
+        "coding-agent"
+      ]
+    }
+  ]
+}

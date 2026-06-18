@@ -1,0 +1,28 @@
+{
+  "name": "change-memory",
+  "version": "0.1.0",
+  "description": "Compact local change memory for Claude Code, exposed as an MCP server.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "change-memory-mcp": "mcp-server/dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p ./tsconfig.json",
+    "dev": "tsx mcp-server/src/index.ts",
+    "prepare": "npm run build",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}
