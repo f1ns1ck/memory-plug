@@ -6,17 +6,8 @@
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
-            "type": "mcp_tool",
-            "server": "change-memory",
-            "tool": "auto_capture_change",
-            "input": {
-              "projectPath": "${CLAUDE_PROJECT_DIR}",
-              "reason": "auto: ${tool_name} ${tool_input.file_path}",
-              "sourceTool": "${tool_name}",
-              "sourceFile": "${tool_input.file_path}",
-              "debounceMs": 30000,
-              "asHookOutput": true
-            },
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/cli/autoCapture.js\"",
             "timeout": 30,
             "statusMessage": "Updating Change Memory"
           }
