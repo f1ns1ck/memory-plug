@@ -124,6 +124,11 @@ A bundled Claude Code hook (`hooks/hooks.json`) fires on `PostToolUse` for the
 Auto-capture keeps its bookkeeping in `.change-memory/auto-capture.json`
 (`last_fingerprint`, `last_capture_at`, `last_change_id`).
 
+> **Project-root note:** the hook passes `${CLAUDE_PROJECT_DIR}` (the directory
+> Claude Code was launched in) as `projectPath`. Open Claude Code **at your git
+> repository root**, not a parent folder — if the repo is nested below the project
+> root, auto-capture targets the wrong directory and silently skips.
+
 ### Verify auto-capture is working
 
 1. Run `/memory-init` once in a git repo (auto-capture is a no-op until initialized).
