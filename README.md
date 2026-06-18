@@ -84,6 +84,7 @@ plugin directory. No configuration is required.
 | --- | --- |
 | `init_memory` | Create `.change-memory/` for the project. |
 | `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. |
+| `auto_capture_change` | Like `capture_change`, but debounced + deduplicated for automatic (hook) use. |
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
 | `show_change` | Show one change's metadata; the patch only when `includePatch: true`. |
 | `list_changes` | Compact table: `id \| type \| file \| summary`. |
@@ -98,6 +99,50 @@ plugin directory. No configuration is required.
 | `/memory-capture [reason]` | Capture current changes. |
 | `/memory-session` | Load the compact session context. |
 | `/memory-show <changeId> [patch]` | Show a change (add `patch` for the diff). |
+
+## Automatic capture
+
+Once the plugin is installed, Change Memory records changes **automatically** — you
+don't need to run `/memory-capture` by hand.
+
+A bundled Claude Code hook (`hooks/hooks.json`) fires on `PostToolUse` for the
+`Write`, `Edit` and `MultiEdit` tools and calls the `auto_capture_change` MCP tool.
+
+- **Manual capture still works.** `/memory-capture` (and the `capture_change` tool)
+  remain available — use them for a deliberate, named snapshot with a custom reason.
+- **Debounced.** At most one capture per `debounceMs` window (default **30s**), so a
+  burst of edits produces a single snapshot, not dozens.
+- **Deduplicated.** Auto-capture fingerprints the composed working-tree diff
+  (tracked diff + untracked file contents). If the diff is unchanged since the last
+  capture, it does nothing.
+- **Never touches git state.** It only reads `git diff` / `git status` and writes
+  into `.change-memory/`. It does **not** `git add`, `commit`, `checkout`, or run any
+  destructive git command.
+- **Non-blocking.** If memory isn't initialized, the path isn't a git repo, or the
+  tree is clean, the hook skips silently and never interrupts your work.
+
+Auto-capture keeps its bookkeeping in `.change-memory/auto-capture.json`
+(`last_fingerprint`, `last_capture_at`, `last_change_id`).
+
+### Verify auto-capture is working
+
+1. Run `/memory-init` once in a git repo (auto-capture is a no-op until initialized).
+2. Ask Claude to edit a file. After the edit, check the latest entry:
+   - `list_changes` (or `/memory-show`) — a new `chg_...` with reason `auto: ...`.
+   - `.change-memory/auto-capture.json` — `last_change_id` updated.
+3. Ask for a second edit within 30s → no new entry (debounced/deduped). Wait >30s and
+   edit again → a new entry appears.
+
+### Disable auto-capture (manual-only mode)
+
+Auto-capture lives entirely in `hooks/hooks.json`. To turn it off and keep only
+manual `/memory-capture`:
+
+- Remove or rename `hooks/hooks.json` in the installed plugin, **or**
+- Disable the plugin's hooks from `/hooks` / your Claude Code hook settings, **or**
+- Raise `debounceMs` in `hooks/hooks.json` to a large value to throttle it.
+
+The MCP tools (including manual `capture_change`) are unaffected.
 
 ## Example workflow
 

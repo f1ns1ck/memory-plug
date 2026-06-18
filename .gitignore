@@ -2,6 +2,10 @@ node_modules/
 *.log
 .DS_Store
 
+# Local Change Memory state: gzip patches, session snapshot and auto-capture
+# fingerprint. Machine-local artifacts — never commit them.
+.change-memory/
+
 # Build output is committed so the plugin runs without a build step after
 # install. Remove the line below if you prefer to ship source-only and rely on
 # the `prepare` script to build on install.

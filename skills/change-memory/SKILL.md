@@ -21,7 +21,8 @@ Use this skill when the user asks to:
 ## Core rule
 
 Always load compact context first. Do not load full patches unless the user asks
-or the task requires exact diff details.
+or the task requires exact diff details. Rely on the auto-capture hook to record
+changes; reserve manual `capture_change` for explicit checkpoints (see below).
 
 ## Workflow
 
@@ -30,7 +31,22 @@ or the task requires exact diff details.
 3. Use `search_changes` to find relevant historical changes.
 4. Use `show_change` with `includePatch: false` first.
 5. Use `show_change` with `includePatch: true` only when exact patch details are required.
-6. Use `capture_change` after meaningful code changes or when the user asks to save progress.
+
+## Capturing changes
+
+Capture is **automatic**. A `PostToolUse` hook calls `auto_capture_change` after
+`Write`/`Edit`/`MultiEdit`, with built-in debounce and dedupe. So:
+
+- **Do not** call `capture_change` reflexively after every edit — the hook already
+  records changes, and a manual call would create a duplicate snapshot of the same
+  diff.
+- Call `capture_change` **only** when:
+  - the user explicitly asks to save progress / checkpoint, **or**
+  - you want a deliberate **named snapshot** with a specific `reason`
+    (e.g. a milestone, before a risky refactor).
+- If you just triggered the auto-capture hook and the diff hasn't changed, calling
+  `capture_change` again is redundant — skip it.
+- At the start of a new session, still load `get_session_context` first.
 
 ## Setup
 

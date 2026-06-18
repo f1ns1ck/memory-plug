@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { initMemory } from "./tools/initMemory.js";
 import { captureChange } from "./tools/captureChange.js";
+import { autoCaptureChange } from "./tools/autoCaptureChange.js";
 import { getSessionContext } from "./tools/getSessionContext.js";
 import { showChange } from "./tools/showChange.js";
 import { listChanges } from "./tools/listChanges.js";
@@ -56,6 +57,31 @@ const tools = [
             },
         },
         handler: (a) => captureChange(a ?? {}),
+    },
+    {
+        name: "auto_capture_change",
+        description: "Automatically capture the current working-tree diff after Claude edits files. Debounced and deduplicated for hook usage. Wrapper over capture_change: skips on clean tree, duplicate diff, or within the debounce window. Read-only git; never commits or modifies the repo.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                ...projectPathProp,
+                reason: { type: "string", description: "Why this change was made (free text)." },
+                sourceTool: {
+                    type: "string",
+                    description: "Tool that triggered the capture (e.g. Write, Edit, MultiEdit).",
+                },
+                sourceFile: { type: "string", description: "File that was edited." },
+                debounceMs: {
+                    type: "number",
+                    description: "Minimum ms between captures. Default 30000.",
+                },
+                asHookOutput: {
+                    type: "boolean",
+                    description: "Return Claude Code hook-compatible JSON instead of human text.",
+                },
+            },
+        },
+        handler: (a) => autoCaptureChange(a ?? {}),
     },
     {
         name: "get_session_context",

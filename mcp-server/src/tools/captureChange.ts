@@ -1,10 +1,5 @@
 import { promises as fs } from "node:fs";
-import {
-  resolveProjectRoot,
-  memoryPaths,
-  toPosix,
-  ensureInsideRoot,
-} from "../utils/paths.js";
+import { resolveProjectRoot, memoryPaths } from "../utils/paths.js";
 import {
   ensureInitialized,
   readIndex,
@@ -13,13 +8,12 @@ import {
   recentChanges,
 } from "../core/memoryStore.js";
 import { ChangeRecord, ChangeType } from "../core/types.js";
+import { isGitRepo } from "../core/git.js";
 import {
-  isGitRepo,
-  getDiff,
-  getChangedFiles,
-  getNameStatus,
-  getUntrackedFiles,
-} from "../core/git.js";
+  buildWorkingTreeDiff,
+  fingerprintDiff,
+  WorkingTreeDiff,
+} from "../core/workingTree.js";
 import { generateChangeId } from "../utils/ids.js";
 import { savePatch } from "../core/patchStore.js";
 import { defaultSummarizer } from "../core/summarizer.js";
@@ -35,44 +29,31 @@ export interface CaptureChangeInput {
   unresolvedItems?: string[];
 }
 
+export interface CaptureResult {
+  captured: boolean;
+  message: string;
+  changeId?: string;
+  /** Fingerprint of the captured working-tree diff (only when captured). */
+  fingerprint?: string;
+}
+
 function uniq(list: string[]): string[] {
   return [...new Set(list)];
 }
 
-const MAX_UNTRACKED_BYTES = 256 * 1024;
-
 /**
- * Build a synthetic "new file" diff block for an untracked file so its content
- * is preserved in the stored patch. Reads are confined to the project root and
- * capped in size. Binary-ish content is skipped (header only).
+ * Core capture routine shared by the `capture_change` tool and
+ * `auto_capture_change`. Stores a compressed patch, writes a change record,
+ * updates the index and rebuilds the session snapshot.
+ *
+ * Pass `pre` to reuse an already-computed working-tree diff (avoids a second
+ * git read and keeps the auto-capture fingerprint consistent with what is
+ * stored). Behavior is identical whether or not `pre` is supplied.
  */
-async function untrackedDiffBlock(
-  projectRoot: string,
-  relFile: string,
-): Promise<string> {
-  const header = `diff --git a/${relFile} b/${relFile}\nnew file (untracked)\n--- /dev/null\n+++ b/${relFile}`;
-  try {
-    const abs = ensureInsideRoot(projectRoot, relFile);
-    const stat = await fs.stat(abs);
-    if (!stat.isFile() || stat.size > MAX_UNTRACKED_BYTES) {
-      return `${header}\n@@ untracked file omitted (too large or not a regular file: ${stat.size} bytes) @@\n`;
-    }
-    const buf = await fs.readFile(abs);
-    if (buf.includes(0)) {
-      return `${header}\n@@ binary file omitted @@\n`;
-    }
-    const body = buf
-      .toString("utf8")
-      .split("\n")
-      .map((l) => `+${l}`)
-      .join("\n");
-    return `${header}\n${body}\n`;
-  } catch {
-    return `${header}\n@@ could not read untracked file @@\n`;
-  }
-}
-
-export async function captureChange(input: CaptureChangeInput): Promise<string> {
+export async function runCapture(
+  input: CaptureChangeInput,
+  pre?: WorkingTreeDiff,
+): Promise<CaptureResult> {
   const projectRoot = resolveProjectRoot(input.projectPath);
   const paths = memoryPaths(projectRoot);
   await ensureInitialized(paths);
@@ -84,31 +65,15 @@ export async function captureChange(input: CaptureChangeInput): Promise<string> 
     );
   }
 
-  const trackedDiff = await getDiff(projectRoot);
-  const untracked = (await getUntrackedFiles(projectRoot)).map(toPosix);
-
-  if (!trackedDiff.trim() && untracked.length === 0) {
-    return "No changes to capture (no tracked changes and no untracked files).";
+  const wt = pre ?? (await buildWorkingTreeDiff(projectRoot));
+  if (wt.isEmpty) {
+    return {
+      captured: false,
+      message: "No changes to capture (no tracked changes and no untracked files).",
+    };
   }
 
-  // Compose the full patch: tracked diff + synthetic blocks for untracked files.
-  let diff = trackedDiff;
-  for (const f of untracked) {
-    const block = await untrackedDiffBlock(projectRoot, f);
-    diff += (diff.endsWith("\n") || diff === "" ? "" : "\n") + block;
-  }
-
-  const trackedFiles = (await getChangedFiles(projectRoot)).map(toPosix);
-  const files = uniq([...trackedFiles, ...untracked]);
-
-  const nameStatus = [
-    ...(await getNameStatus(projectRoot)).map((e) => ({
-      status: e.status,
-      file: toPosix(e.file),
-    })),
-    ...untracked.map((file) => ({ status: "A", file })),
-  ];
-
+  const { diff, files, nameStatus } = wt;
   const id = generateChangeId(diff);
   const timestamp = new Date().toISOString();
 
@@ -166,7 +131,7 @@ export async function captureChange(input: CaptureChangeInput): Promise<string> 
   });
   await fs.writeFile(paths.sessionFile, sessionMd, "utf8");
 
-  return [
+  const message = [
     `Captured change ${id}`,
     `Type: ${record.type}`,
     `Files: ${files.length} (${record.added.length} added, ${record.modified.length} modified, ${record.removed.length} removed)`,
@@ -175,4 +140,12 @@ export async function captureChange(input: CaptureChangeInput): Promise<string> 
     ``,
     `Summary: ${record.summary}`,
   ].join("\n");
+
+  return { captured: true, message, changeId: id, fingerprint: fingerprintDiff(diff) };
+}
+
+/** MCP `capture_change` tool — unchanged external behavior. */
+export async function captureChange(input: CaptureChangeInput): Promise<string> {
+  const result = await runCapture(input);
+  return result.message;
 }
