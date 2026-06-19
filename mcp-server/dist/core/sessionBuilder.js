@@ -3,7 +3,7 @@ function renderChanges(changes) {
     if (!changes.length)
         return "_No changes recorded yet._";
     return changes
-        .map((c) => `- ${c.id}: ${c.summary}`)
+        .map((c) => `- ${c.id}${c.author ? ` (${c.author})` : ""}: ${c.summary}`)
         .join("\n");
 }
 function renderList(items, empty) {

@@ -48,6 +48,23 @@ Capture is **automatic**. A `PostToolUse` hook calls `auto_capture_change` after
   `capture_change` again is redundant — skip it.
 - At the start of a new session, still load `get_session_context` first.
 
+## Team sharing
+
+The memory **map** is meant to be committed so teammates inherit the change
+history. `init_memory` writes a `.change-memory/.gitignore` that commits
+`index.json`, `changes.jsonl` and `summaries/` while ignoring the machine-local
+artifacts (`patches/`, `auto-capture.json`, `session.md`). Each change records its
+`author` (from `git config`), so `list_changes` / `show_change` tell the next
+coder *who* did what. On a fresh clone, just run `get_session_context` — it
+rebuilds the snapshot from the committed map.
+
+## Toggling auto-capture
+
+Auto-capture can be turned off per-developer with `set_auto_capture`
+(`/memory-auto on|off|status`). The toggle lives in the local, gitignored
+`auto-capture.json`, so it never affects teammates. When off, only manual
+`capture_change` records changes.
+
 ## Setup
 
 If `get_session_context` reports the memory is not initialized, call `init_memory`

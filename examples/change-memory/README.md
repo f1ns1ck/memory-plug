@@ -4,9 +4,13 @@ This folder is a **static, illustrative sample** of what Change Memory stores in
 project. It exists so you can see the on-disk format without digging into a live
 install. It is **not** used by the plugin at runtime.
 
-In a real project the state lives in a `.change-memory/` directory at the repo root,
-which is **gitignored** (machine-local artifacts — never commit them). See the root
-[`.gitignore`](../../.gitignore) and the [README](../../README.md).
+In a real project the state lives in a `.change-memory/` directory at the repo
+root. The **semantic map** (`index.json`, `changes.jsonl`, `summaries/`) is
+committed so teammates inherit the change history; only the machine-local /
+heavy-binary artifacts (`patches/`, `auto-capture.json`, `session.md`) are
+gitignored. `init_memory` writes a `.change-memory/.gitignore` enforcing exactly
+that. See the root [`.gitignore`](../../.gitignore) and the
+[README](../../README.md).
 
 ## Files here
 

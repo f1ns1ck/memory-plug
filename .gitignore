@@ -2,9 +2,13 @@ node_modules/
 *.log
 .DS_Store
 
-# Local Change Memory state: gzip patches, session snapshot and auto-capture
-# fingerprint. Machine-local artifacts — never commit them.
-.change-memory/
+# Change Memory: the semantic map (index.json, changes.jsonl, summaries/) is
+# committed so teammates inherit the change history. Only machine-local /
+# heavy-binary artifacts are ignored. (init_memory also writes a
+# .change-memory/.gitignore with the same rules in every consuming project.)
+.change-memory/patches/
+.change-memory/auto-capture.json
+.change-memory/session.md
 
 # Build output is committed so the plugin runs without a build step after
 # install. Remove the line below if you prefer to ship source-only and rely on

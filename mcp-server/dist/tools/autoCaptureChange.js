@@ -10,7 +10,7 @@ export const AUTO_STATE_FILE = "auto-capture.json";
 function stateFile(memoryDir) {
     return path.join(memoryDir, AUTO_STATE_FILE);
 }
-async function readState(memoryDir) {
+export async function readAutoState(memoryDir) {
     try {
         return JSON.parse(await fs.readFile(stateFile(memoryDir), "utf8"));
     }
@@ -18,7 +18,7 @@ async function readState(memoryDir) {
         return {};
     }
 }
-async function writeState(memoryDir, state) {
+export async function writeAutoState(memoryDir, state) {
     await fs.writeFile(stateFile(memoryDir), JSON.stringify(state, null, 2) + "\n", "utf8");
 }
 /**
@@ -57,27 +57,31 @@ export async function autoCaptureChange(input) {
     // Soft guards — auto-capture must never disrupt normal work.
     if (!(await isInitialized(paths)))
         return skip("Change Memory not initialized");
+    // Per-machine toggle: honored before any git work so a disabled hook is cheap.
+    const preState = await readAutoState(paths.memoryDir);
+    if (preState.enabled === false)
+        return skip("auto-capture disabled");
     if (!(await isGitRepo(projectRoot)))
         return skip("not a git repository");
     const wt = await buildWorkingTreeDiff(projectRoot);
     if (wt.isEmpty)
         return skip("working tree is clean");
     const fingerprint = fingerprintDiff(wt.diff);
-    const state = await readState(paths.memoryDir);
+    const state = preState;
     const debounceMs = typeof input.debounceMs === "number" && input.debounceMs >= 0
         ? input.debounceMs
         : DEFAULT_DEBOUNCE_MS;
     const now = Date.now();
     // Dedupe: identical change set already captured.
     if (state.last_fingerprint === fingerprint) {
-        await writeState(paths.memoryDir, { ...state, last_skip_reason: "dedupe" });
+        await writeAutoState(paths.memoryDir, { ...state, last_skip_reason: "dedupe" });
         return skip("diff identical to last capture (dedupe)");
     }
     // Debounce: too soon after the previous capture.
     if (state.last_capture_at) {
         const elapsed = now - Date.parse(state.last_capture_at);
         if (Number.isFinite(elapsed) && elapsed < debounceMs) {
-            await writeState(paths.memoryDir, { ...state, last_skip_reason: "debounce" });
+            await writeAutoState(paths.memoryDir, { ...state, last_skip_reason: "debounce" });
             return skip(`debounced (${elapsed}ms < ${debounceMs}ms since last capture)`);
         }
     }
@@ -86,10 +90,12 @@ export async function autoCaptureChange(input) {
     if (!result.captured) {
         return skip(result.message);
     }
-    await writeState(paths.memoryDir, {
+    await writeAutoState(paths.memoryDir, {
+        ...state,
         last_fingerprint: fingerprint,
         last_capture_at: new Date(now).toISOString(),
         last_change_id: result.changeId,
+        last_skip_reason: undefined,
     });
     if (asHook)
         return hookOutput();

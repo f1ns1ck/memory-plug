@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { resolveProjectRoot, memoryPaths } from "../utils/paths.js";
 import { ensureInitialized, readIndex, writeIndex, appendChange, recentChanges, } from "../core/memoryStore.js";
-import { isGitRepo } from "../core/git.js";
+import { isGitRepo, getAuthor } from "../core/git.js";
 import { buildWorkingTreeDiff, fingerprintDiff, } from "../core/workingTree.js";
 import { generateChangeId } from "../utils/ids.js";
 import { savePatch } from "../core/patchStore.js";
@@ -38,6 +38,7 @@ export async function runCapture(input, pre) {
     const { diff, files, nameStatus } = wt;
     const id = generateChangeId(diff);
     const timestamp = new Date().toISOString();
+    const author = await getAuthor(projectRoot);
     // Store the full diff compressed; it stays out of the model context.
     const patchRel = await savePatch(paths.patchesDir, id, diff);
     const summary = defaultSummarizer.summarize({
@@ -50,6 +51,7 @@ export async function runCapture(input, pre) {
     const record = {
         id,
         timestamp,
+        ...(author ? { author } : {}),
         files,
         type: summary.type,
         summary: summary.summary,

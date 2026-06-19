@@ -22,7 +22,7 @@ export async function listChanges(input) {
     if (!slice.length) {
         return "No changes match.";
     }
-    const rows = slice.map((c) => `${c.id} | ${c.type} | ${primaryFile(c)} | ${c.summary}`);
+    const rows = slice.map((c) => `${c.id} | ${c.type} | ${c.author ?? "(unknown)"} | ${primaryFile(c)} | ${c.summary}`);
     return rows.join("\n");
 }
 //# sourceMappingURL=listChanges.js.map

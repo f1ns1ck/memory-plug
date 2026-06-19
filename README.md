@@ -27,7 +27,10 @@ The guiding principle:
 - **Continuity across sessions** — pick up where you left off without re-explaining.
 - **Token efficiency** — bootstrap context is budgeted (~700 tokens by default).
 - **Avoid repeating work** — search past fixes, risks, and unresolved items.
-- **Local & private** — nothing leaves your machine. No network, no telemetry.
+- **Local & private** — no network, no telemetry. The semantic map can be
+  committed to share with your team; raw diffs (patches) stay on your machine.
+- **Team-friendly** — the change history travels with the repo, with author
+  attribution, so the next coder sees who changed what and why.
 
 ## How it works
 
@@ -42,12 +45,17 @@ State lives in your project under `.change-memory/`:
 
 ```
 .change-memory/
-  session.md       # compact snapshot (mirrors get_session_context)
-  index.json       # project metadata, active files, unresolved items, budgets
-  changes.jsonl    # one JSON line per captured change
-  patches/         # gzip-compressed full diffs (chg_*.patch.gz)
-  summaries/       # archived/compacted history
+  index.json       # project metadata, active files, unresolved items, budgets   [shared]
+  changes.jsonl    # one JSON line per captured change (incl. author)             [shared]
+  summaries/       # archived/compacted history                                   [shared]
+  session.md       # compact snapshot (mirrors get_session_context, regenerated)  [local]
+  patches/         # gzip-compressed full diffs (chg_*.patch.gz)                   [local]
+  auto-capture.json# per-machine fingerprint + auto-capture on/off toggle         [local]
+  .gitignore       # written by init_memory: commits the map, ignores the rest
 ```
+
+`[shared]` files are committed so teammates inherit the change history;
+`[local]` artifacts stay on your machine. See **Team workflow** below.
 
 See [`examples/change-memory/`](examples/change-memory/) for a static sample of
 `session.md` and `index.json` so you can preview the format without a live install.
@@ -78,8 +86,27 @@ See [`examples/change-memory/`](examples/change-memory/) for a static sample of
 `${CLAUDE_PLUGIN_ROOT}` is provided by Claude Code and points at the installed
 plugin directory. No configuration is required.
 
-> **Tip:** add `.change-memory/` to your project's `.gitignore` if you don't want the
-> memory committed. (Patches are local artifacts.)
+## Team workflow
+
+Change Memory is built to travel with the repo so the **next coder understands
+what changed and why** — without you re-explaining it.
+
+- **Commit the map.** `init_memory` writes a `.change-memory/.gitignore` that
+  commits `index.json`, `changes.jsonl` and `summaries/` (the semantic map) and
+  ignores `patches/`, `auto-capture.json` and `session.md` (machine-local /
+  heavy-binary). Just commit `.change-memory/` as part of your normal git flow —
+  the plugin never runs git writes itself.
+- **Attribution.** Each change records its `author` from `git config
+  user.name/user.email`, so `list_changes` and `show_change` show *who* made it.
+- **Fresh clone.** A teammate who clones the repo runs `/memory-session`
+  (`get_session_context`) and immediately gets the rebuilt snapshot from the
+  committed map — no patches required. They can `show_change` any change's
+  metadata; the raw diff (`includePatch: true`) is only available for changes
+  captured on their own machine, since patches stay local.
+
+> **Prefer not to share?** Delete the generated `.change-memory/.gitignore` and
+> add `.change-memory/` to your project's root `.gitignore` to keep everything
+> machine-local instead.
 
 ## Tools
 
@@ -88,6 +115,7 @@ plugin directory. No configuration is required.
 | `init_memory` | Create `.change-memory/` for the project. |
 | `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. |
 | `auto_capture_change` | Like `capture_change`, but debounced + deduplicated for automatic (hook) use. |
+| `set_auto_capture` | Turn auto-capture on/off for this machine (per-developer; omit `enabled` to query). |
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
 | `show_change` | Show one change's metadata; the patch only when `includePatch: true`. |
 | `list_changes` | Compact table: `id \| type \| file \| summary`. |
@@ -102,6 +130,7 @@ plugin directory. No configuration is required.
 | `/memory-capture [reason]` | Capture current changes. |
 | `/memory-session` | Load the compact session context. |
 | `/memory-show <changeId> [patch]` | Show a change (add `patch` for the diff). |
+| `/memory-auto <on\|off\|status>` | Turn automatic capture on/off (per-machine). |
 
 ## Automatic capture
 
@@ -143,8 +172,14 @@ Auto-capture keeps its bookkeeping in `.change-memory/auto-capture.json`
 
 ### Disable auto-capture (manual-only mode)
 
-Auto-capture lives entirely in `hooks/hooks.json`. To turn it off and keep only
-manual `/memory-capture`:
+The simplest way is the per-machine toggle:
+
+- Run **`/memory-auto off`** (calls `set_auto_capture`). The flag is stored in the
+  local, gitignored `auto-capture.json`, so it only affects your machine, never
+  your teammates. `/memory-auto on` re-enables it; `/memory-auto status` reports
+  the current state.
+
+To hard-disable the hook for everyone (or as a fallback):
 
 - Remove or rename `hooks/hooks.json` in the installed plugin, **or**
 - Disable the plugin's hooks from `/hooks` / your Claude Code hook settings, **or**
@@ -161,7 +196,7 @@ The MCP tools (including manual `capture_change`) are unaffected.
 # ... you and Claude make changes ...
 
 /memory-capture fixed token refresh on expiry
-                            → chg_20260618_210712_... | fix | src/auth.ts
+                            → chg_20260618_210712_... | fix | Ada <ada@example.com> | src/auth.ts
 
 # Later, recall details
 search_changes("token")     → finds the change
@@ -181,8 +216,9 @@ It intentionally excludes full diffs to reduce token usage.
 
 ## Recent Changes
 
-- chg_20260618_210712_de5c94c2: Fix change: added 1, modified 1 file(s) in src
-  (`src/auth.ts`). Reason: fix token refresh. Full patch stored locally.
+- chg_20260618_210712_de5c94c2 (Ada <ada@example.com>): Fix change: added 1,
+  modified 1 file(s) in src (`src/auth.ts`). Reason: fix token refresh. Full
+  patch stored locally.
 
 ## Active Files
 
@@ -221,6 +257,8 @@ This plugin is built to be safe for marketplace distribution:
    - `git diff --name-status`
    - `git status --porcelain [--untracked-files=all]`
    - `git rev-parse --is-inside-work-tree`
+   - `git config user.name` / `git config user.email` (read-only, for author
+     attribution)
 
    Commands are executed via `execFile` (no shell), and user input is never
    interpolated into a command. Write operations (commit/add/checkout) are
@@ -234,10 +272,15 @@ This plugin is built to be safe for marketplace distribution:
 
 ## Privacy model
 
-- Your code and diffs **never leave your machine**.
-- Patches are stored compressed on local disk; you control them.
+- **Raw diffs never leave your machine.** Patches are stored compressed locally
+  and are gitignored by default; you control them.
+- The **map** that can be committed (summaries, file lists, reasons, authors,
+  open issues) is intentionally diff-free — only what a teammate needs to follow
+  the history, not the source itself.
 - The session snapshot deliberately excludes diffs to minimize what enters the
   model context.
+- Don't want to share anything? See **Team workflow** for how to keep the whole
+  `.change-memory/` directory machine-local.
 
 ## MVP limitations
 
@@ -260,8 +303,12 @@ Not included in this first version:
   repo (`git init`).
 - **Server not loading** — ensure `mcp-server/dist/index.js` exists; run
   `npm install` (which builds) and restart Claude Code.
-- **Memory captured itself** — `.change-memory/` is always excluded from capture;
-  also add it to `.gitignore` to keep it out of commits.
+- **Memory captured itself** — `.change-memory/` is always excluded from capture
+  (see `getUntrackedFiles`). The generated `.change-memory/.gitignore` already
+  keeps patches and machine-local state out of commits.
+- **Author shows `(unknown)`** — set a git identity (`git config user.name` /
+  `git config user.email`); pre-existing changes captured before this version
+  have no recorded author.
 
 ## Roadmap (0.2.0+)
 

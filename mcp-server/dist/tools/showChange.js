@@ -19,6 +19,7 @@ export async function showChange(input) {
         `# ${change.id}`,
         ``,
         `- Timestamp: ${change.timestamp}`,
+        `- Author: ${change.author ?? "(unknown)"}`,
         `- Type: ${change.type}`,
         `- Summary: ${change.summary}`,
         change.reason ? `- Reason: ${change.reason}` : `- Reason: (none)`,

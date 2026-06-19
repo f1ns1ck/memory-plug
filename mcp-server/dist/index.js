@@ -5,6 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextpro
 import { initMemory } from "./tools/initMemory.js";
 import { captureChange } from "./tools/captureChange.js";
 import { autoCaptureChange } from "./tools/autoCaptureChange.js";
+import { setAutoCapture } from "./tools/setAutoCapture.js";
 import { getSessionContext } from "./tools/getSessionContext.js";
 import { showChange } from "./tools/showChange.js";
 import { listChanges } from "./tools/listChanges.js";
@@ -84,6 +85,21 @@ const tools = [
         handler: (a) => autoCaptureChange(a ?? {}),
     },
     {
+        name: "set_auto_capture",
+        description: "Turn automatic capture on or off for this machine (per-developer, stored in the local auto-capture.json — not committed). Omit 'enabled' to report the current state.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                ...projectPathProp,
+                enabled: {
+                    type: "boolean",
+                    description: "true to enable auto-capture, false to disable. Omit to query.",
+                },
+            },
+        },
+        handler: (a) => setAutoCapture(a ?? {}),
+    },
+    {
         name: "get_session_context",
         description: "Return a compact markdown memory snapshot for a new session. Never includes full diffs. Start every session here.",
         inputSchema: {
@@ -117,7 +133,7 @@ const tools = [
     },
     {
         name: "list_changes",
-        description: "List recent changes as a compact table: id | type | file | summary. Optional file/type filters.",
+        description: "List recent changes as a compact table: id | type | author | file | summary. Optional file/type filters.",
         inputSchema: {
             type: "object",
             properties: {

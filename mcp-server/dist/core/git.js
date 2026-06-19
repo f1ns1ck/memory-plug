@@ -14,6 +14,8 @@ const ALLOWED_ARGS = [
     ["status", "--porcelain"],
     ["status", "--porcelain", "--untracked-files=all"],
     ["rev-parse", "--is-inside-work-tree"],
+    ["config", "user.name"],
+    ["config", "user.email"],
 ];
 function assertAllowed(args) {
     const ok = ALLOWED_ARGS.some((allowed) => allowed.length === args.length && allowed.every((a, i) => a === args[i]));
@@ -81,6 +83,33 @@ export async function getStatusPorcelain(cwd) {
  * change-memory tool a brand-new file is exactly the kind of "added" change we
  * want to record. Read-only: we only parse status output.
  */
+/**
+ * Read the committer identity from git config as "Name <email>" so changes can
+ * be attributed when memory is shared across a team. Returns undefined when
+ * neither name nor email is configured. Read-only: only `git config <key>` runs,
+ * which never mutates the repo.
+ */
+export async function getAuthor(cwd) {
+    const read = async (key) => {
+        try {
+            const out = await git(cwd, ["config", key]);
+            return out.trim();
+        }
+        catch {
+            // `git config <key>` exits non-zero when the key is unset.
+            return "";
+        }
+    };
+    const name = await read("user.name");
+    const email = await read("user.email");
+    if (name && email)
+        return `${name} <${email}>`;
+    if (name)
+        return name;
+    if (email)
+        return `<${email}>`;
+    return undefined;
+}
 export async function getUntrackedFiles(cwd) {
     // `--untracked-files=all` expands untracked directories into individual files.
     const out = await git(cwd, ["status", "--porcelain", "--untracked-files=all"]);

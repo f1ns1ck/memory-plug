@@ -40,7 +40,8 @@ export async function listChanges(input: ListChangesInput): Promise<string> {
   }
 
   const rows = slice.map(
-    (c) => `${c.id} | ${c.type} | ${primaryFile(c)} | ${c.summary}`,
+    (c) =>
+      `${c.id} | ${c.type} | ${c.author ?? "(unknown)"} | ${primaryFile(c)} | ${c.summary}`,
   );
   return rows.join("\n");
 }
