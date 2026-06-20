@@ -28,6 +28,7 @@ export function newIndex(projectName, now) {
         constraints: [...DEFAULT_CONSTRAINTS],
         max_bootstrap_tokens: DEFAULT_MAX_BOOTSTRAP_TOKENS,
         max_recent_changes: DEFAULT_MAX_RECENT_CHANGES,
+        share_patches: false,
     };
 }
 export async function readIndex(paths) {

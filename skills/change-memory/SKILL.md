@@ -58,10 +58,20 @@ artifacts (`patches/`, `auto-capture.json`, `session.md`). Each change records i
 coder *who* did what. On a fresh clone, just run `get_session_context` — it
 rebuilds the snapshot from the committed map.
 
+By default `patches/` stay machine-local, so a teammate can read any change's
+metadata but `show_change` with `includePatch: true` only works for changes
+captured on their own machine. To share patches too, use `set_share_patches`
+(`/memory share on|off|status`, or `init_memory` with `sharePatches: true` at
+setup): `patches/` are committed and the managed `.gitignore` is regenerated. The
+flag is stored as `share_patches` in the committed `index.json` (a team-wide
+decision, unlike the per-machine auto-capture toggle); pass `enabled: false` to
+revert. This adds compressed patch blobs to git, so leave it OFF unless the team
+wants full diffs to travel.
+
 ## Toggling auto-capture
 
 Auto-capture can be turned off per-developer with `set_auto_capture`
-(`/memory-auto on|off|status`). The toggle lives in the local, gitignored
+(`/memory auto on|off|status`). The toggle lives in the local, gitignored
 `auto-capture.json`, so it never affects teammates. When off, only manual
 `capture_change` records changes.
 

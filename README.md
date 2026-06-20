@@ -103,6 +103,13 @@ what changed and why** — without you re-explaining it.
   committed map — no patches required. They can `show_change` any change's
   metadata; the raw diff (`includePatch: true`) is only available for changes
   captured on their own machine, since patches stay local.
+- **Share patches too (opt-in).** Run `/memory share on` (or
+  `set_share_patches({ enabled: true })`) to commit `patches/` as well, so
+  teammates can load *any* change's diff. The flag is stored as `share_patches`
+  in the committed `index.json` and the managed `.gitignore` is regenerated to
+  track `patches/`; `/memory share off` reverts to local-only. You can also opt in
+  at setup time with `/memory-init share`. Note this commits compressed patch
+  blobs, which adds repo weight — leave it off unless the team wants full diffs.
 
 > **Prefer not to share?** Delete the generated `.change-memory/.gitignore` and
 > add `.change-memory/` to your project's root `.gitignore` to keep everything
@@ -116,6 +123,7 @@ what changed and why** — without you re-explaining it.
 | `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. |
 | `auto_capture_change` | Like `capture_change`, but debounced + deduplicated for automatic (hook) use. |
 | `set_auto_capture` | Turn auto-capture on/off for this machine (per-developer; omit `enabled` to query). |
+| `set_share_patches` | Turn patch sharing on/off for the project (team-wide via `index.json`; omit `enabled` to query). |
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
 | `show_change` | Show one change's metadata; the patch only when `includePatch: true`. |
 | `list_changes` | Compact table: `id \| type \| file \| summary`. |
@@ -124,13 +132,19 @@ what changed and why** — without you re-explaining it.
 
 ## Slash commands
 
+Three core commands are top-level; the rest live under a single `/memory`
+dispatcher to keep the command surface small.
+
 | Command | Action |
 | --- | --- |
-| `/memory-init` | Initialize memory for the project. |
+| `/memory-init [share-patches]` | Initialize memory; add `share` to commit patches too. |
 | `/memory-capture [reason]` | Capture current changes. |
 | `/memory-session` | Load the compact session context. |
-| `/memory-show <changeId> [patch]` | Show a change (add `patch` for the diff). |
-| `/memory-auto <on\|off\|status>` | Turn automatic capture on/off (per-machine). |
+| `/memory show <changeId> [patch]` | Show a change (add `patch` for the diff). |
+| `/memory search <query> [limit]` | Search change history by keyword. |
+| `/memory compact [olderThanDays] [keepRecent]` | Archive old changes; keep recent ones. |
+| `/memory auto <on\|off\|status>` | Turn automatic capture on/off (per-machine). |
+| `/memory share <on\|off\|status>` | Turn patch sharing on/off (team-wide). |
 
 ## Automatic capture
 
@@ -165,7 +179,7 @@ Auto-capture keeps its bookkeeping in `.change-memory/auto-capture.json`
 
 1. Run `/memory-init` once in a git repo (auto-capture is a no-op until initialized).
 2. Ask Claude to edit a file. After the edit, check the latest entry:
-   - `list_changes` (or `/memory-show`) — a new `chg_...` with reason `auto: ...`.
+   - `list_changes` (or `/memory show`) — a new `chg_...` with reason `auto: ...`.
    - `.change-memory/auto-capture.json` — `last_change_id` updated.
 3. Ask for a second edit within 30s → no new entry (debounced/deduped). Wait >30s and
    edit again → a new entry appears.
@@ -174,9 +188,9 @@ Auto-capture keeps its bookkeeping in `.change-memory/auto-capture.json`
 
 The simplest way is the per-machine toggle:
 
-- Run **`/memory-auto off`** (calls `set_auto_capture`). The flag is stored in the
+- Run **`/memory auto off`** (calls `set_auto_capture`). The flag is stored in the
   local, gitignored `auto-capture.json`, so it only affects your machine, never
-  your teammates. `/memory-auto on` re-enables it; `/memory-auto status` reports
+  your teammates. `/memory auto on` re-enables it; `/memory auto status` reports
   the current state.
 
 To hard-disable the hook for everyone (or as a fallback):
