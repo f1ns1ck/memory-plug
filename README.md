@@ -1,5 +1,7 @@
 # Change Memory
 
+**English** | [Русский](README.ru.md)
+
 > Change Memory gives Claude Code compact, local memory of what changed in your
 > project across sessions. It stores semantic summaries, changed files, unresolved
 > issues, risks, and compressed patches **without loading full diffs into context
