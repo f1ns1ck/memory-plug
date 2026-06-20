@@ -4,6 +4,22 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Opt-in patch sharing.** New `set_share_patches` tool and `/memory share on|off|status`
+  command commit `patches/` so teammates can load any change's diff. Stored as
+  `share_patches` in the committed `index.json`; the managed `.change-memory/.gitignore`
+  is regenerated when toggled (a hand-customized file is left untouched). `init_memory`
+  also accepts `sharePatches` for setup-time opt-in (`/memory-init share`). Default OFF —
+  patches stay machine-local.
+
+### Changed
+- **Consolidated slash commands.** The less-frequent commands now live under a single
+  `/memory <show|search|compact|auto|share>` dispatcher; `/memory-init`, `/memory-capture`
+  and `/memory-session` remain top-level. (`search_changes` and `compact_memory` are now
+  reachable from a command, which they weren't before.)
+
 ## [0.2.0] - 2026-06-20
 
 ### Added

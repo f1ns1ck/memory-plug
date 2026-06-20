@@ -6,6 +6,7 @@ import { initMemory } from "./tools/initMemory.js";
 import { captureChange } from "./tools/captureChange.js";
 import { autoCaptureChange } from "./tools/autoCaptureChange.js";
 import { setAutoCapture } from "./tools/setAutoCapture.js";
+import { setSharePatches } from "./tools/setSharePatches.js";
 import { getSessionContext } from "./tools/getSessionContext.js";
 import { showChange } from "./tools/showChange.js";
 import { listChanges } from "./tools/listChanges.js";
@@ -28,6 +29,10 @@ const tools = [
             properties: {
                 ...projectPathProp,
                 projectName: { type: "string", description: "Human-readable project name." },
+                sharePatches: {
+                    type: "boolean",
+                    description: "Opt-in: commit patches/ so teammates can load any change's diff. Re-run to toggle (default OFF — patches stay machine-local).",
+                },
             },
         },
         handler: (a) => initMemory(a ?? {}),
@@ -98,6 +103,21 @@ const tools = [
             },
         },
         handler: (a) => setAutoCapture(a ?? {}),
+    },
+    {
+        name: "set_share_patches",
+        description: "Turn patch sharing on or off for this project (team decision, stored as share_patches in the committed index.json). ON commits patches/ so teammates can load any change's diff; OFF keeps patches machine-local. Regenerates the managed .gitignore. Omit 'enabled' to report the current state.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                ...projectPathProp,
+                enabled: {
+                    type: "boolean",
+                    description: "true to commit patches/, false to keep them local-only. Omit to query.",
+                },
+            },
+        },
+        handler: (a) => setSharePatches(a ?? {}),
     },
     {
         name: "get_session_context",

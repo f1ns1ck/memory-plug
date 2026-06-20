@@ -9,6 +9,7 @@ import { initMemory } from "../mcp-server/dist/tools/initMemory.js";
 import { captureChange } from "../mcp-server/dist/tools/captureChange.js";
 import { autoCaptureChange } from "../mcp-server/dist/tools/autoCaptureChange.js";
 import { setAutoCapture } from "../mcp-server/dist/tools/setAutoCapture.js";
+import { setSharePatches } from "../mcp-server/dist/tools/setSharePatches.js";
 import { memoryPaths } from "../mcp-server/dist/utils/paths.js";
 import { readChanges } from "../mcp-server/dist/core/memoryStore.js";
 
@@ -44,6 +45,42 @@ test("init writes .change-memory/.gitignore with local-only entries (idempotent)
   await fs.writeFile(ignore, "custom\n", "utf8");
   await initMemory({ projectPath: dir }); // already-initialized path
   assert.equal(await fs.readFile(ignore, "utf8"), "custom\n");
+});
+
+test("set_share_patches toggles whether patches/ is committed", async () => {
+  const dir = await makeRepo();
+  const ignore = path.join(memoryPaths(dir).memoryDir, ".gitignore");
+
+  // Default: patches/ are local-only, and status reports OFF.
+  await initMemory({ projectPath: dir });
+  assert.match(await fs.readFile(ignore, "utf8"), /^patches\/$/m);
+  assert.match(await setSharePatches({ projectPath: dir }), /OFF/);
+
+  // Opt in: patches/ drop out of the managed gitignore and status flips ON.
+  const on = await setSharePatches({ projectPath: dir, enabled: true });
+  assert.match(on, /ON/);
+  assert.doesNotMatch(await fs.readFile(ignore, "utf8"), /^patches\/$/m);
+  assert.match(await setSharePatches({ projectPath: dir }), /ON/);
+
+  // git now tracks a captured patch.
+  await fs.writeFile(path.join(dir, "app.ts"), "export const x = 9\n");
+  await captureChange({ projectPath: dir, reason: "patch share" });
+  assert.match(
+    git(dir, "status", "--porcelain", "--untracked-files=all"),
+    /\.change-memory\/patches\//,
+  );
+
+  // Toggle back off: patches/ are ignored again.
+  await setSharePatches({ projectPath: dir, enabled: false });
+  assert.match(await fs.readFile(ignore, "utf8"), /^patches\/$/m);
+});
+
+test("init_memory still accepts sharePatches as an initial opt-in", async () => {
+  const dir = await makeRepo();
+  const ignore = path.join(memoryPaths(dir).memoryDir, ".gitignore");
+  const out = await initMemory({ projectPath: dir, sharePatches: true });
+  assert.match(out, /Patch sharing: ON/);
+  assert.doesNotMatch(await fs.readFile(ignore, "utf8"), /^patches\/$/m);
 });
 
 test("git sees the shared map as tracked and local artifacts as ignored", async () => {

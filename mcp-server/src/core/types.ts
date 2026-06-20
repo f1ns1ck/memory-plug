@@ -28,6 +28,9 @@ export interface MemoryIndex {
   constraints: string[];
   max_bootstrap_tokens: number;
   max_recent_changes: number;
+  /** Opt-in: commit `patches/` with the repo so teammates can load any change's
+   * diff via show_change. Default/undefined ⇒ patches stay machine-local. */
+  share_patches?: boolean;
 }
 
 export interface ChangeRecord {

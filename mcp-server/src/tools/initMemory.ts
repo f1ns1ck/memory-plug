@@ -13,34 +13,58 @@ import { invalidInput } from "../utils/errors.js";
 export interface InitMemoryInput {
   projectPath?: string;
   projectName?: string;
+  /** Opt-in: commit `patches/` so teammates can load any change's diff.
+   * On an already-initialized project, passing this toggles the index flag and
+   * regenerates the managed `.gitignore`. Omitted ⇒ leave the setting as-is. */
+  sharePatches?: boolean;
 }
 
-/**
- * Local-only entries inside `.change-memory/`. The semantic map
- * (index.json, changes.jsonl, summaries/) is meant to be committed and shared
- * with the team; these are machine-specific or heavy/binary and stay local.
- */
-const LOCAL_ONLY_IGNORE = ["patches/", "auto-capture.json", "session.md"];
+/** Always machine-local, regardless of patch sharing. */
+const ALWAYS_LOCAL_IGNORE = ["auto-capture.json", "session.md"];
 
-/** Write `.change-memory/.gitignore` so the shared map is committed and the
- * machine-local artifacts are ignored. Idempotent: never clobbers an existing
- * file (a project may have customized it). */
-async function ensureMemoryGitignore(memoryDir: string): Promise<void> {
-  const file = path.join(memoryDir, ".gitignore");
-  try {
-    await fs.access(file);
-    return; // already present — leave it untouched
-  } catch {
-    // not present — write the default
-  }
-  const body =
+/** Render the managed `.gitignore` body for a given sharing mode. `patches/` is
+ * ignored unless the project opts in to sharing them. */
+function renderGitignore(sharePatches: boolean): string {
+  const entries = sharePatches
+    ? [...ALWAYS_LOCAL_IGNORE]
+    : ["patches/", ...ALWAYS_LOCAL_IGNORE];
+  return (
     [
       "# Machine-local Change Memory artifacts — never commit these.",
       "# The shared map (index.json, changes.jsonl, summaries/) IS committed so",
       "# teammates inherit the change history on clone.",
-      ...LOCAL_ONLY_IGNORE,
-    ].join("\n") + "\n";
-  await fs.writeFile(file, body, "utf8");
+      ...entries,
+    ].join("\n") + "\n"
+  );
+}
+
+/** Write `.change-memory/.gitignore` for the given sharing mode. Idempotent and
+ * safe: creates the file when missing, rewrites it when it still matches one of
+ * our managed variants (so toggling `share_patches` takes effect), but never
+ * clobbers a file a user has customized by hand. */
+export async function ensureMemoryGitignore(
+  memoryDir: string,
+  sharePatches: boolean,
+): Promise<void> {
+  const file = path.join(memoryDir, ".gitignore");
+  const desired = renderGitignore(sharePatches);
+  let existing: string | null = null;
+  try {
+    existing = await fs.readFile(file, "utf8");
+  } catch {
+    // not present — fall through to write
+  }
+  if (existing === null) {
+    await fs.writeFile(file, desired, "utf8");
+    return;
+  }
+  if (existing === desired) return; // already correct
+  const isManaged =
+    existing === renderGitignore(true) || existing === renderGitignore(false);
+  if (isManaged) {
+    await fs.writeFile(file, desired, "utf8"); // safe to retune our own file
+  }
+  // otherwise: user-customized — leave it untouched
 }
 
 export async function initMemory(input: InitMemoryInput): Promise<string> {
@@ -61,11 +85,18 @@ export async function initMemory(input: InitMemoryInput): Promise<string> {
 
   if (await isInitialized(paths)) {
     const index = await readIndex(paths);
-    // Backfill the gitignore for projects initialized before sharing existed.
-    await ensureMemoryGitignore(paths.memoryDir);
+    // Apply a sharing toggle if one was passed, otherwise keep the stored value.
+    if (input.sharePatches !== undefined && input.sharePatches !== index.share_patches) {
+      index.share_patches = input.sharePatches;
+      await writeIndex(paths, index);
+    }
+    const share = index.share_patches ?? false;
+    // Backfill / retune the gitignore for the current sharing mode.
+    await ensureMemoryGitignore(paths.memoryDir, share);
     return [
       `Memory already initialized at ${paths.memoryDir}.`,
       `Project: ${index.project_name}`,
+      `Patch sharing: ${share ? "ON (patches/ committed)" : "OFF (patches/ local-only)"}.`,
       `Use capture_change to record work or get_session_context to load the snapshot.`,
     ].join("\n");
   }
@@ -74,12 +105,15 @@ export async function initMemory(input: InitMemoryInput): Promise<string> {
     input.projectName?.trim() || path.basename(projectRoot) || "project";
   const now = new Date().toISOString();
 
+  const sharePatches = input.sharePatches ?? false;
+
   await fs.mkdir(paths.memoryDir, { recursive: true });
   await fs.mkdir(paths.patchesDir, { recursive: true });
   await fs.mkdir(paths.summariesDir, { recursive: true });
-  await ensureMemoryGitignore(paths.memoryDir);
+  await ensureMemoryGitignore(paths.memoryDir, sharePatches);
 
   const index = newIndex(projectName, now);
+  index.share_patches = sharePatches;
   await writeIndex(paths, index);
   await fs.writeFile(paths.changesFile, "", "utf8");
 
@@ -90,8 +124,9 @@ export async function initMemory(input: InitMemoryInput): Promise<string> {
     `Initialized Change Memory at ${paths.memoryDir}`,
     `Project: ${projectName}`,
     `Created: index.json, changes.jsonl, session.md, patches/, summaries/, .gitignore`,
-    `Shared (commit these): index.json, changes.jsonl, summaries/`,
-    `Local-only (gitignored): patches/, auto-capture.json, session.md`,
+    `Shared (commit these): index.json, changes.jsonl, summaries/${sharePatches ? ", patches/" : ""}`,
+    `Local-only (gitignored): ${sharePatches ? "" : "patches/, "}auto-capture.json, session.md`,
+    `Patch sharing: ${sharePatches ? "ON" : "OFF"} (re-run init_memory with sharePatches to toggle).`,
     ``,
     `Next: make code changes, then run capture_change (or /memory-capture).`,
   ].join("\n");
