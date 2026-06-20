@@ -4,7 +4,7 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-06-20
 
 ### Added
 - **Opt-in patch sharing.** New `set_share_patches` tool and `/memory share on|off|status`

@@ -12,7 +12,7 @@
       "name": "change-memory",
       "source": "./",
       "description": "Compact, local memory of what changed in your project across Claude Code sessions. Stores semantic summaries and compressed patches without loading full diffs into context by default.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "development",
       "keywords": [
         "claude-code",
