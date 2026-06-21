@@ -7,6 +7,13 @@
 > issues, risks, and compressed patches **without loading full diffs into context
 > by default**.
 
+**A git-native, fully offline, team-shareable change log for your AI agent.**
+Zero tokens, zero cloud, zero telemetry — the change history is plain JSON that
+commits with your repo and travels to the next coder, with author attribution.
+Unlike conversation-memory plugins, Change Memory remembers **what changed in the
+code and why**, not what was said in the chat. See
+[Change Memory vs other memory plugins](#change-memory-vs-other-memory-plugins).
+
 **Category:** development
 **Keywords:** claude-code, mcp, agent-memory, git-diff, context-management, token-optimization, coding-agent
 
@@ -33,6 +40,32 @@ The guiding principle:
   committed to share with your team; raw diffs (patches) stay on your machine.
 - **Team-friendly** — the change history travels with the repo, with author
   attribution, so the next coder sees who changed what and why.
+
+## Change Memory vs other memory plugins
+
+Most memory plugins for AI agents record the **conversation / agent observations**
+and compress them **with an LLM** (spending tokens) or store them in a **cloud /
+paid** service. Change Memory deliberately occupies a different niche: a
+**diff-centric, offline, git-committed** change log.
+
+| | **Change Memory** | Conversation-memory plugins (e.g. claude-mem) | Cloud memory frameworks (e.g. Mem0, Zep) |
+| --- | --- | --- | --- |
+| **Remembers** | What *changed* in the code, and why (git diffs + reason/risk) | What the agent *did/said* during the session | Facts, preferences, conversation history |
+| **Summarization** | Offline heuristic — **no LLM, no tokens** | AI-compressed (consumes tokens / API) | LLM + embeddings |
+| **Storage** | Local files (`.change-memory/`) | Local DB (e.g. SQLite + vector) | Mostly cloud / paid tiers |
+| **Network / telemetry** | **None** | Varies (API for compression) | Cloud by design |
+| **Team sharing** | **Built-in** — map commits to git, with author attribution | Typically per-developer | Per-account |
+| **Auditability** | Plain JSON, diffs in your PR | Opaque store | Remote service |
+| **Search** | Keyword | Hybrid keyword + semantic | Semantic / graph |
+| **Agents** | Claude Code | Often multi-agent | Many agents |
+
+**When to choose Change Memory:** you want a *shared*, *auditable* record of code
+changes that costs **nothing to run**, sends **nothing off your machine**, and lives
+in the repo — ideal for privacy-sensitive, regulated, or team settings.
+
+**When another tool fits better:** you want rich AI-written session summaries,
+semantic/vector recall over conversation history, or one memory layer across many
+different agents. These are complementary — Change Memory can run alongside them.
 
 ## How it works
 
@@ -326,13 +359,27 @@ Not included in this first version:
   `git config user.email`); pre-existing changes captured before this version
   have no recorded author.
 
-## Roadmap (0.2.0+)
+## Roadmap
 
-- Optional, opt-in LLM-based summarizer (pluggable `Summarizer` interface already
-  in place) for richer summaries — still local-first.
+**Shipped**
+
+- ✅ Team-shareable map with author attribution (0.2.0).
+- ✅ Opt-in patch sharing + consolidated slash commands (0.3.0).
+- ✅ Automatic capture via `PostToolUse` hook, with per-machine toggle.
+
+**Next (priority order)**
+
+- **Branch/commit awareness + PR summaries** — tie each change to its branch/commit
+  and generate a change summary for a PR. Strengthens the review/onboarding use case.
+- **Optional, opt-in LLM summarizer** (pluggable `Summarizer` interface already in
+  place) for richer summaries — **off by default, still offline-first**.
 - Per-file patch retrieval in `show_change` (request a single file's hunk).
-- Staged vs. unstaged capture modes and branch/commit awareness.
 - Automatic `compact_memory` on a size/age threshold.
+
+**Later**
+
+- Optional offline semantic search (local embeddings, no cloud).
+- Staged vs. unstaged capture modes.
 - Configurable token budgets and constraints via `index.json` editing helpers.
 - Tags/labels and richer search ranking.
 
