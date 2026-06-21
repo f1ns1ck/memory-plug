@@ -2,8 +2,9 @@
   "schema_version": 1,
   "project_name": "memory-plug",
   "created_at": "2026-06-18T16:32:27.418Z",
-  "last_session_at": "2026-06-21T12:53:33.332Z",
+  "last_session_at": "2026-06-21T13:08:31.552Z",
   "active_files": [
+    ".change-memory/changes.jsonl",
     ".change-memory/index.json",
     "README.md",
     "README.ru.md",
@@ -22,20 +23,19 @@
     "mcp-server/dist/tools/initMemory.js",
     "mcp-server/dist/tools/initMemory.js.map",
     "mcp-server/src/core/memoryStore.ts",
-    "mcp-server/src/core/types.ts",
-    "mcp-server/src/index.ts"
+    "mcp-server/src/core/types.ts"
   ],
   "recent_change_ids": [
+    "chg_20260621_180831_1ce58649",
+    "chg_20260621_180636_c6ad50c5",
+    "chg_20260621_180553_0b29ffc2",
     "chg_20260621_175333_66309f74",
     "chg_20260620_194453_73bfffc3",
     "chg_20260620_194336_7df6df05",
     "chg_20260620_194136_8cbc81ae",
     "chg_20260620_193126_a488f372",
     "chg_20260620_193056_6f30687b",
-    "chg_20260620_193022_82803ef1",
-    "chg_20260620_192951_1a9ffd07",
-    "chg_20260620_192913_ceb1447d",
-    "chg_20260620_183027_0c50700f"
+    "chg_20260620_193022_82803ef1"
   ],
   "unresolved_items": [],
   "constraints": [
