@@ -8,6 +8,8 @@ function haystack(c) {
         c.summary,
         c.reason,
         c.type,
+        c.branch ?? "",
+        c.commit ?? "",
         ...c.files,
         ...c.risk,
         ...c.tests,

@@ -107,6 +107,18 @@ test("capture records the git author on the change", async () => {
   assert.equal(change.author, "Dev Example <dev@example.com>");
 });
 
+test("capture records the branch and commit on the change", async () => {
+  const dir = await makeRepo();
+  await initMemory({ projectPath: dir });
+  const branch = git(dir, "rev-parse", "--abbrev-ref", "HEAD").trim();
+  await fs.writeFile(path.join(dir, "app.ts"), "export const x = 5\n");
+  await captureChange({ projectPath: dir, reason: "branch test" });
+
+  const [change] = await readChanges(memoryPaths(dir));
+  assert.equal(change.branch, branch);
+  assert.match(change.commit, /^[0-9a-f]{7,}$/);
+});
+
 test("set_auto_capture off disables capture; on re-enables it", async () => {
   const dir = await makeRepo();
   await initMemory({ projectPath: dir });
