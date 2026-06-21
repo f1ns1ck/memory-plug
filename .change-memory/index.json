@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "project_name": "memory-plug",
+  "created_at": "2026-06-18T16:32:27.418Z",
+  "last_session_at": "2026-06-20T14:44:53.186Z",
+  "active_files": [
+    "README.md",
+    "README.ru.md",
+    ".claude-plugin/marketplace.json",
+    ".claude-plugin/plugin.json",
+    "CHANGELOG.md",
+    "package.json",
+    "commands/memory-auto.md",
+    "commands/memory-init.md",
+    "commands/memory-show.md",
+    "mcp-server/dist/core/memoryStore.js",
+    "mcp-server/dist/core/memoryStore.js.map",
+    "mcp-server/dist/core/types.js.map",
+    "mcp-server/dist/index.js",
+    "mcp-server/dist/index.js.map",
+    "mcp-server/dist/tools/initMemory.js",
+    "mcp-server/dist/tools/initMemory.js.map",
+    "mcp-server/src/core/memoryStore.ts",
+    "mcp-server/src/core/types.ts",
+    "mcp-server/src/index.ts",
+    "mcp-server/src/tools/initMemory.ts"
+  ],
+  "recent_change_ids": [
+    "chg_20260620_194453_73bfffc3",
+    "chg_20260620_194336_7df6df05",
+    "chg_20260620_194136_8cbc81ae",
+    "chg_20260620_193126_a488f372",
+    "chg_20260620_193056_6f30687b",
+    "chg_20260620_193022_82803ef1",
+    "chg_20260620_192951_1a9ffd07",
+    "chg_20260620_192913_ceb1447d",
+    "chg_20260620_183027_0c50700f",
+    "chg_20260620_182956_608b5b43"
+  ],
+  "unresolved_items": [
+    "Add hooks/hooks.json for PostToolUse auto-capture",
+    "Update README and SKILL for auto-capture",
+    "Add tests for auto_capture_change"
+  ],
+  "constraints": [
+    "Keep AI context compact",
+    "Do not include full diffs by default",
+    "Load detailed patches only when explicitly needed"
+  ],
+  "max_bootstrap_tokens": 700,
+  "max_recent_changes": 10
+}
