@@ -56,7 +56,8 @@ offline heuristic (which only counts files). Pass:
 
 - `llmSummary` — one concise sentence: *what* changed and *why* (e.g.
   "Refactored token refresh to retry once on 401 and surface auth errors to the UI").
-- `llmRisk` — optional, only genuine risks (auth/data/migrations/contracts).
+- `llmRisk` — optional, only genuine risks (auth/data/migrations/contracts);
+  these are added to the heuristic risk flags, not a replacement for them.
 - `llmType` — optional, the real change type if the heuristic would misclassify.
 
 This is **offline-first**: write the summary from your own understanding of the

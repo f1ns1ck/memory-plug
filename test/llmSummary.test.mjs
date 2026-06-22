@@ -42,17 +42,23 @@ test("mergeAgentSummary: undefined agent returns the heuristic base unchanged", 
   assert.deepEqual(mergeAgentSummary(BASE, undefined), BASE);
 });
 
-test("mergeAgentSummary: a full override replaces summary, risk and type", () => {
+test("mergeAgentSummary: a full override replaces summary and type, unions risk", () => {
   const out = mergeAgentSummary(BASE, {
     summary: "  Refactor token refresh to retry once on 401.  ",
     risk: ["touches auth"],
     type: "refactor",
   });
   assert.equal(out.summary, "Refactor token refresh to retry once on 401.");
-  assert.deepEqual(out.risk, ["touches auth"]);
+  // Agent risk augments the heuristic risk; it never drops the security flags.
+  assert.deepEqual(out.risk, ["heuristic risk", "touches auth"]);
   assert.equal(out.type, "refactor");
   // File lists come from git, never from the agent.
   assert.deepEqual(out.modified, ["app.ts"]);
+});
+
+test("mergeAgentSummary: llmType 'unknown' never overwrites a heuristic type", () => {
+  const out = mergeAgentSummary({ ...BASE, type: "feature" }, { type: "unknown" });
+  assert.equal(out.type, "feature");
 });
 
 test("mergeAgentSummary: partial override keeps heuristic fields", () => {
@@ -73,9 +79,9 @@ test("mergeAgentSummary: blank/invalid overrides are ignored", () => {
   assert.equal(out.type, BASE.type);
 });
 
-test("mergeAgentSummary: risk override is de-duplicated", () => {
-  const out = mergeAgentSummary(BASE, { risk: ["a", "a", " a ", "b"] });
-  assert.deepEqual(out.risk, ["a", "b"]);
+test("mergeAgentSummary: unioned risk is de-duplicated across heuristic and agent", () => {
+  const out = mergeAgentSummary(BASE, { risk: ["heuristic risk", "a", "a", " a ", "b"] });
+  assert.deepEqual(out.risk, ["heuristic risk", "a", "b"]);
 });
 
 test("capture_change records an agent-authored summary/risk/type", async () => {

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -80,7 +81,7 @@ const tools = [
           type: "array",
           items: { type: "string" },
           description:
-            "Optional agent-authored risk notes that replace the heuristic risk list. Omit to keep the heuristic risks.",
+            "Optional agent-authored risk notes, unioned with (not replacing) the heuristic risks so automatic security flags are never lost. Omit to keep only the heuristic risks.",
         },
         llmType: {
           type: "string",
@@ -255,8 +256,13 @@ const handlers = new Map<string, (args: any) => Promise<string>>(
   tools.map((t) => [t.name, t.handler]),
 );
 
+// Single source of truth for the version: read it from package.json at startup
+// rather than hardcoding it, so the MCP handshake never drifts from the package.
+const require = createRequire(import.meta.url);
+const { version: pkgVersion } = require("../../package.json") as { version: string };
+
 const server = new Server(
-  { name: "change-memory", version: "0.1.0" },
+  { name: "change-memory", version: pkgVersion },
   { capabilities: { tools: {} } },
 );
 

@@ -32,7 +32,9 @@ export interface Summarizer {
  * An optional, agent-authored summary. The host model (Claude Code) — not the
  * server — produces this; the server still makes zero network calls and holds no
  * API keys. Any field left undefined falls back to the heuristic result, so a
- * partial override (e.g. a better summary line but no risk) is safe.
+ * partial override (e.g. a better summary line but no risk) is safe. Agent risk
+ * notes are unioned with the heuristic risks, never replacing them, so the
+ * automatic security flags can't be lost.
  */
 export interface AgentSummary {
   summary?: string;
@@ -59,9 +61,13 @@ export function mergeAgentSummary(
       .filter((r): r is string => typeof r === "string")
       .map((r) => r.trim())
       .filter(Boolean);
-    if (cleaned.length) out.risk = [...new Set(cleaned)];
+    // Union over the heuristic risks: agent notes augment, never replace, the
+    // automatic security flags. Heuristic notes come first, then agent extras.
+    if (cleaned.length) out.risk = [...new Set([...base.risk, ...cleaned])];
   }
-  if (agent.type && CHANGE_TYPES.includes(agent.type)) {
+  // "unknown" is a valid ChangeType but a non-classification — never let it
+  // overwrite a confident heuristic type.
+  if (agent.type && agent.type !== "unknown" && CHANGE_TYPES.includes(agent.type)) {
     out.type = agent.type;
   }
   return out;

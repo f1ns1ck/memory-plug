@@ -19,7 +19,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - The `Summarizer` interface is now async (`summarize → Promise<SummarizerOutput>`)
   to keep the contract stable for future summarizer backends; `HeuristicSummarizer`
   behavior is unchanged. New `mergeAgentSummary` merges an agent override over the
-  heuristic floor (blank/invalid fields ignored, risk de-duplicated).
+  heuristic floor: blank/invalid fields are ignored, an `llmType` of `unknown`
+  never overwrites a confident classification, and agent risk notes are unioned
+  with (never replace) the heuristic risks so automatic security flags can't be
+  lost.
+- The MCP server now reports its version from `package.json` instead of a
+  hardcoded string, so the handshake no longer drifts from the package version.
 
 ## [0.3.0] - 2026-06-20
 

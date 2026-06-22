@@ -17,10 +17,14 @@ export function mergeAgentSummary(base, agent) {
             .filter((r) => typeof r === "string")
             .map((r) => r.trim())
             .filter(Boolean);
+        // Union over the heuristic risks: agent notes augment, never replace, the
+        // automatic security flags. Heuristic notes come first, then agent extras.
         if (cleaned.length)
-            out.risk = [...new Set(cleaned)];
+            out.risk = [...new Set([...base.risk, ...cleaned])];
     }
-    if (agent.type && CHANGE_TYPES.includes(agent.type)) {
+    // "unknown" is a valid ChangeType but a non-classification — never let it
+    // overwrite a confident heuristic type.
+    if (agent.type && agent.type !== "unknown" && CHANGE_TYPES.includes(agent.type)) {
         out.type = agent.type;
     }
     return out;

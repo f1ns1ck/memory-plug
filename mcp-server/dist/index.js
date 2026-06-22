@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
@@ -68,7 +69,7 @@ const tools = [
                 llmRisk: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Optional agent-authored risk notes that replace the heuristic risk list. Omit to keep the heuristic risks.",
+                    description: "Optional agent-authored risk notes, unioned with (not replacing) the heuristic risks so automatic security flags are never lost. Omit to keep only the heuristic risks.",
                 },
                 llmType: {
                     type: "string",
@@ -229,7 +230,11 @@ const tools = [
     },
 ];
 const handlers = new Map(tools.map((t) => [t.name, t.handler]));
-const server = new Server({ name: "change-memory", version: "0.1.0" }, { capabilities: { tools: {} } });
+// Single source of truth for the version: read it from package.json at startup
+// rather than hardcoding it, so the MCP handshake never drifts from the package.
+const require = createRequire(import.meta.url);
+const { version: pkgVersion } = require("../../package.json");
+const server = new Server({ name: "change-memory", version: pkgVersion }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map(({ name, description, inputSchema }) => ({
         name,
