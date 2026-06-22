@@ -30,7 +30,9 @@ changes; reserve manual `capture_change` for explicit checkpoints (see below).
 2. Use `list_changes` to inspect recent work.
 3. Use `search_changes` to find relevant historical changes.
 4. Use `show_change` with `includePatch: false` first.
-5. Use `show_change` with `includePatch: true` only when exact patch details are required.
+5. When you only need one file's diff from a large change, use `show_change` with
+   `file: "<path substring>"` instead of loading the whole patch.
+6. Use `show_change` with `includePatch: true` only when the full patch is required.
 
 ## Capturing changes
 

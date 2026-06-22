@@ -62,3 +62,72 @@ export function truncatePatch(
     totalLines: lines.length,
   };
 }
+
+/**
+ * Split a unified diff into per-file sections, keyed by the file's repo-relative
+ * path (the `b/` side, falling back to the `a/` side for deletions). Each section
+ * starts at its `diff --git` header and runs until the next one. Anything before
+ * the first header (rare) is ignored.
+ */
+function splitPatchByFile(patch: string): Map<string, string> {
+  const sections = new Map<string, string>();
+  const lines = patch.split("\n");
+  let currentPath: string | null = null;
+  let buffer: string[] = [];
+
+  const flush = () => {
+    if (currentPath !== null) {
+      sections.set(currentPath, buffer.join("\n"));
+    }
+  };
+
+  for (const line of lines) {
+    const header = parseDiffHeader(line);
+    if (header) {
+      flush();
+      currentPath = header;
+      buffer = [line];
+    } else if (currentPath !== null) {
+      buffer.push(line);
+    }
+  }
+  flush();
+  return sections;
+}
+
+/** Extract the repo-relative path from a `diff --git a/x b/y` line, or null. */
+function parseDiffHeader(line: string): string | null {
+  if (!line.startsWith("diff --git ")) return null;
+  // Format: diff --git a/<old> b/<new>. Paths may contain spaces, but git quotes
+  // those; for the common unquoted case we split on " b/" to recover the new path.
+  const rest = line.slice("diff --git ".length);
+  const sep = rest.indexOf(" b/");
+  if (sep !== -1) {
+    return rest.slice(sep + 3).trim();
+  }
+  // Fallback: strip a leading "a/" from the whole remainder.
+  return rest.replace(/^a\//, "").trim();
+}
+
+/**
+ * Return the diff section(s) for files whose path contains `fileQuery`
+ * (case-sensitive substring, matching `list_changes`/`show_change` file fields).
+ * `available` always lists every file in the patch so callers can guide the user
+ * on a miss.
+ */
+export function extractFilePatch(
+  patch: string,
+  fileQuery: string,
+): { text: string; matched: string[]; available: string[] } {
+  const sections = splitPatchByFile(patch);
+  const available = [...sections.keys()];
+  const matched: string[] = [];
+  const parts: string[] = [];
+  for (const [filePath, section] of sections) {
+    if (filePath.includes(fileQuery)) {
+      matched.push(filePath);
+      parts.push(section);
+    }
+  }
+  return { text: parts.join("\n"), matched, available };
+}
