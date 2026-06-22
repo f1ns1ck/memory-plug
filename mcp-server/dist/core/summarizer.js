@@ -1,4 +1,34 @@
 import path from "node:path";
+import { CHANGE_TYPES } from "./types.js";
+/**
+ * Merge an agent-authored summary over a heuristic base. The heuristic output is
+ * the floor: it is always computed first, so capture never depends on the agent
+ * supplying anything. Empty / blank / invalid overrides are ignored.
+ */
+export function mergeAgentSummary(base, agent) {
+    if (!agent)
+        return base;
+    const out = { ...base };
+    if (typeof agent.summary === "string" && agent.summary.trim()) {
+        out.summary = agent.summary.trim();
+    }
+    if (Array.isArray(agent.risk)) {
+        const cleaned = agent.risk
+            .filter((r) => typeof r === "string")
+            .map((r) => r.trim())
+            .filter(Boolean);
+        // Union over the heuristic risks: agent notes augment, never replace, the
+        // automatic security flags. Heuristic notes come first, then agent extras.
+        if (cleaned.length)
+            out.risk = [...new Set([...base.risk, ...cleaned])];
+    }
+    // "unknown" is a valid ChangeType but a non-classification — never let it
+    // overwrite a confident heuristic type.
+    if (agent.type && agent.type !== "unknown" && CHANGE_TYPES.includes(agent.type)) {
+        out.type = agent.type;
+    }
+    return out;
+}
 // --- Classification heuristics -------------------------------------------------
 const TEST_RE = /(^|\/)(test|tests|__tests__|spec)(\/|$)|\.(test|spec)\.[tj]sx?$/i;
 const DOCS_RE = /\.(md|mdx|rst|txt|adoc)$|(^|\/)docs?(\/|$)/i;
@@ -59,7 +89,7 @@ function topAreas(files) {
     return [...dirs].slice(0, 3);
 }
 export class HeuristicSummarizer {
-    summarize(input) {
+    async summarize(input) {
         const added = [];
         const modified = [];
         const removed = [];

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
@@ -60,6 +61,20 @@ const tools = [
                     type: "array",
                     items: { type: "string" },
                     description: "Open issues / TODOs to carry forward.",
+                },
+                llmSummary: {
+                    type: "string",
+                    description: "Optional agent-authored one-line semantic summary of what changed and why. YOU (the host model) write it from your understanding of the diff — the server makes no LLM/network call. Omit to use the offline heuristic. Use only for deliberate manual checkpoints, not reflexively.",
+                },
+                llmRisk: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Optional agent-authored risk notes, unioned with (not replacing) the heuristic risks so automatic security flags are never lost. Omit to keep only the heuristic risks.",
+                },
+                llmType: {
+                    type: "string",
+                    enum: CHANGE_TYPES,
+                    description: "Optional agent-authored change type override (e.g. feature/fix/refactor). Omit to keep the heuristic classification.",
                 },
             },
         },
@@ -215,7 +230,11 @@ const tools = [
     },
 ];
 const handlers = new Map(tools.map((t) => [t.name, t.handler]));
-const server = new Server({ name: "change-memory", version: "0.1.0" }, { capabilities: { tools: {} } });
+// Single source of truth for the version: read it from package.json at startup
+// rather than hardcoding it, so the MCP handshake never drifts from the package.
+const require = createRequire(import.meta.url);
+const { version: pkgVersion } = require("../../package.json");
+const server = new Server({ name: "change-memory", version: pkgVersion }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map(({ name, description, inputSchema }) => ({
         name,

@@ -48,6 +48,24 @@ Capture is **automatic**. A `PostToolUse` hook calls `auto_capture_change` after
   `capture_change` again is redundant — skip it.
 - At the start of a new session, still load `get_session_context` first.
 
+### Author a richer summary on manual checkpoints
+
+When you **do** make a deliberate manual `capture_change`, you already understand
+the diff you just produced — so summarize it yourself instead of leaving the
+offline heuristic (which only counts files). Pass:
+
+- `llmSummary` — one concise sentence: *what* changed and *why* (e.g.
+  "Refactored token refresh to retry once on 401 and surface auth errors to the UI").
+- `llmRisk` — optional, only genuine risks (auth/data/migrations/contracts);
+  these are added to the heuristic risk flags, not a replacement for them.
+- `llmType` — optional, the real change type if the heuristic would misclassify.
+
+This is **offline-first**: write the summary from your own understanding of the
+change — do **not** fetch anything or call any external model. The server never
+contacts an LLM and holds no keys; these fields are simply your words. Any field
+you omit falls back to the heuristic, so partial input is fine. **Auto-capture
+stays heuristic** — only enrich deliberate, named checkpoints this way.
+
 ## PR summaries
 
 Each change records the `branch` and short `commit` it was captured on. To help a

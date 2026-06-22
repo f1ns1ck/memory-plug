@@ -16,7 +16,7 @@ import {
 } from "../core/workingTree.js";
 import { generateChangeId } from "../utils/ids.js";
 import { savePatch } from "../core/patchStore.js";
-import { defaultSummarizer } from "../core/summarizer.js";
+import { defaultSummarizer, mergeAgentSummary } from "../core/summarizer.js";
 import { estimateTokens } from "../core/tokenBudget.js";
 import { buildSessionMarkdown } from "../core/sessionBuilder.js";
 import { MemoryError } from "../utils/errors.js";
@@ -27,6 +27,16 @@ export interface CaptureChangeInput {
   reason?: string;
   tests?: string[];
   unresolvedItems?: string[];
+  /**
+   * Optional agent-authored summary. The host model (Claude Code) writes these
+   * from its own understanding of the diff — the server makes no LLM/network
+   * call and holds no keys. Any omitted field falls back to the offline
+   * heuristic, so a partial override is safe. Reserved for deliberate, manual
+   * checkpoints; auto-capture never supplies them and stays heuristic.
+   */
+  llmSummary?: string;
+  llmRisk?: string[];
+  llmType?: ChangeType;
 }
 
 export interface CaptureResult {
@@ -83,12 +93,19 @@ export async function runCapture(
   // Store the full diff compressed; it stays out of the model context.
   const patchRel = await savePatch(paths.patchesDir, id, diff);
 
-  const summary = defaultSummarizer.summarize({
+  // Heuristic output is the floor — always computed offline, never fails. An
+  // optional agent-authored summary (host model, no network) is merged on top.
+  const base = await defaultSummarizer.summarize({
     files,
     nameStatus,
     diff,
     reason: input.reason,
     changeTypeHint: input.changeType,
+  });
+  const summary = mergeAgentSummary(base, {
+    summary: input.llmSummary,
+    risk: input.llmRisk,
+    type: input.llmType,
   });
 
   const record: ChangeRecord = {

@@ -1,11 +1,11 @@
 import path from "node:path";
-import { ChangeType } from "./types.js";
+import { ChangeType, CHANGE_TYPES } from "./types.js";
 import { NameStatusEntry } from "./git.js";
 
 /**
  * Heuristic, offline summarizer. No external LLM is contacted. The interface is
- * intentionally small so a future LLM-backed summarizer can implement the same
- * `summarize` contract.
+ * intentionally small (and async) so a future LLM-backed summarizer can
+ * implement the same `summarize` contract without changing call sites.
  */
 export interface SummarizerInput {
   files: string[];
@@ -25,7 +25,52 @@ export interface SummarizerOutput {
 }
 
 export interface Summarizer {
-  summarize(input: SummarizerInput): SummarizerOutput;
+  summarize(input: SummarizerInput): Promise<SummarizerOutput>;
+}
+
+/**
+ * An optional, agent-authored summary. The host model (Claude Code) — not the
+ * server — produces this; the server still makes zero network calls and holds no
+ * API keys. Any field left undefined falls back to the heuristic result, so a
+ * partial override (e.g. a better summary line but no risk) is safe. Agent risk
+ * notes are unioned with the heuristic risks, never replacing them, so the
+ * automatic security flags can't be lost.
+ */
+export interface AgentSummary {
+  summary?: string;
+  risk?: string[];
+  type?: ChangeType;
+}
+
+/**
+ * Merge an agent-authored summary over a heuristic base. The heuristic output is
+ * the floor: it is always computed first, so capture never depends on the agent
+ * supplying anything. Empty / blank / invalid overrides are ignored.
+ */
+export function mergeAgentSummary(
+  base: SummarizerOutput,
+  agent?: AgentSummary,
+): SummarizerOutput {
+  if (!agent) return base;
+  const out: SummarizerOutput = { ...base };
+  if (typeof agent.summary === "string" && agent.summary.trim()) {
+    out.summary = agent.summary.trim();
+  }
+  if (Array.isArray(agent.risk)) {
+    const cleaned = agent.risk
+      .filter((r): r is string => typeof r === "string")
+      .map((r) => r.trim())
+      .filter(Boolean);
+    // Union over the heuristic risks: agent notes augment, never replace, the
+    // automatic security flags. Heuristic notes come first, then agent extras.
+    if (cleaned.length) out.risk = [...new Set([...base.risk, ...cleaned])];
+  }
+  // "unknown" is a valid ChangeType but a non-classification — never let it
+  // overwrite a confident heuristic type.
+  if (agent.type && agent.type !== "unknown" && CHANGE_TYPES.includes(agent.type)) {
+    out.type = agent.type;
+  }
+  return out;
 }
 
 // --- Classification heuristics -------------------------------------------------
@@ -96,7 +141,7 @@ function topAreas(files: string[]): string[] {
 }
 
 export class HeuristicSummarizer implements Summarizer {
-  summarize(input: SummarizerInput): SummarizerOutput {
+  async summarize(input: SummarizerInput): Promise<SummarizerOutput> {
     const added: string[] = [];
     const modified: string[] = [];
     const removed: string[] = [];
