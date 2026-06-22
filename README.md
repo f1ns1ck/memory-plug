@@ -155,7 +155,7 @@ what changed and why** — without you re-explaining it.
 | Tool | Purpose |
 | --- | --- |
 | `init_memory` | Create `.change-memory/` for the project. |
-| `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. |
+| `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. Accepts optional agent-authored `llmSummary`/`llmRisk`/`llmType` (host model, no network) that override the heuristic. |
 | `auto_capture_change` | Like `capture_change`, but debounced + deduplicated for automatic (hook) use. |
 | `set_auto_capture` | Turn auto-capture on/off for this machine (per-developer; omit `enabled` to query). |
 | `set_share_patches` | Turn patch sharing on/off for the project (team-wide via `index.json`; omit `enabled` to query). |
@@ -299,7 +299,10 @@ This plugin is built to be safe for marketplace distribution:
 
 1. **Local only.** All state lives in `.change-memory/` inside your project.
 2. **No telemetry**, no analytics, no phone-home.
-3. **No external network calls.** The server has no HTTP client.
+3. **No external network calls.** The server has no HTTP client. The optional
+   richer summary (`llmSummary`/`llmRisk`/`llmType` on `capture_change`) is
+   written by the **host model** (Claude Code) and passed in as plain text — the
+   server itself never contacts an LLM and holds no API keys.
 4. **No `eval`** and no dynamic code execution.
 5. **No arbitrary shell.** The only external process is `git`, restricted to an
    **allow-list of read-only argument vectors**:
@@ -369,11 +372,12 @@ Not included in this first version:
 - ✅ Opt-in patch sharing + consolidated slash commands (0.3.0).
 - ✅ Automatic capture via `PostToolUse` hook, with per-machine toggle.
 - ✅ Branch/commit awareness + `summarize_branch` PR summaries.
+- ✅ Opt-in agent-authored summaries on manual capture — the host model writes a
+  richer `summary`/`risk`/`type`; the server still makes **no network call** and
+  the offline heuristic remains the default. Auto-capture stays heuristic.
 
 **Next (priority order)**
 
-- **Optional, opt-in LLM summarizer** (pluggable `Summarizer` interface already in
-  place) for richer summaries — **off by default, still offline-first**.
 - Per-file patch retrieval in `show_change` (request a single file's hunk).
 - Automatic `compact_memory` on a size/age threshold.
 

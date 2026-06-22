@@ -71,6 +71,23 @@ const tools = [
           items: { type: "string" },
           description: "Open issues / TODOs to carry forward.",
         },
+        llmSummary: {
+          type: "string",
+          description:
+            "Optional agent-authored one-line semantic summary of what changed and why. YOU (the host model) write it from your understanding of the diff — the server makes no LLM/network call. Omit to use the offline heuristic. Use only for deliberate manual checkpoints, not reflexively.",
+        },
+        llmRisk: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional agent-authored risk notes that replace the heuristic risk list. Omit to keep the heuristic risks.",
+        },
+        llmType: {
+          type: "string",
+          enum: CHANGE_TYPES,
+          description:
+            "Optional agent-authored change type override (e.g. feature/fix/refactor). Omit to keep the heuristic classification.",
+        },
       },
     },
     handler: (a: any) => captureChange(a ?? {}),

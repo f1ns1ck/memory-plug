@@ -4,6 +4,23 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-06-22
+
+### Added
+- **Opt-in agent-authored summaries.** `capture_change` now accepts optional
+  `llmSummary`, `llmRisk` and `llmType`. The host model (Claude Code) writes a
+  richer, semantic summary from its own understanding of the diff and passes it
+  in as plain text; the server makes **no network call** and holds no API keys,
+  so the "no external network calls / no HTTP client" guarantee is unchanged. Any
+  omitted field falls back to the offline heuristic. `SKILL.md` teaches the agent
+  to enrich **deliberate manual checkpoints** only — auto-capture stays heuristic.
+
+### Changed
+- The `Summarizer` interface is now async (`summarize → Promise<SummarizerOutput>`)
+  to keep the contract stable for future summarizer backends; `HeuristicSummarizer`
+  behavior is unchanged. New `mergeAgentSummary` merges an agent override over the
+  heuristic floor (blank/invalid fields ignored, risk de-duplicated).
+
 ## [0.3.0] - 2026-06-20
 
 ### Added
