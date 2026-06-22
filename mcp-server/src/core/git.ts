@@ -16,6 +16,8 @@ const ALLOWED_ARGS: readonly (readonly string[])[] = [
   ["status", "--porcelain"],
   ["status", "--porcelain", "--untracked-files=all"],
   ["rev-parse", "--is-inside-work-tree"],
+  ["rev-parse", "--abbrev-ref", "HEAD"],
+  ["rev-parse", "--short", "HEAD"],
   ["config", "user.name"],
   ["config", "user.email"],
 ];
@@ -122,6 +124,34 @@ export async function getAuthor(cwd: string): Promise<string | undefined> {
   if (name) return name;
   if (email) return `<${email}>`;
   return undefined;
+}
+
+/**
+ * Current branch name via `git rev-parse --abbrev-ref HEAD`. Returns undefined
+ * when detached (output `HEAD`), in an unborn branch, or not a repo — callers
+ * treat a missing branch as "no branch context". Read-only.
+ */
+export async function getBranch(cwd: string): Promise<string | undefined> {
+  try {
+    const out = (await git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"])).trim();
+    if (!out || out === "HEAD") return undefined;
+    return out;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Short HEAD commit via `git rev-parse --short HEAD`. Returns undefined on an
+ * unborn branch (no commits yet) or when not a repo. Read-only.
+ */
+export async function getHeadCommit(cwd: string): Promise<string | undefined> {
+  try {
+    const out = (await git(cwd, ["rev-parse", "--short", "HEAD"])).trim();
+    return out || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getUntrackedFiles(cwd: string): Promise<string[]> {

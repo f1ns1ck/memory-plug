@@ -48,6 +48,14 @@ Capture is **automatic**. A `PostToolUse` hook calls `auto_capture_change` after
   `capture_change` again is redundant — skip it.
 - At the start of a new session, still load `get_session_context` first.
 
+## PR summaries
+
+Each change records the `branch` and short `commit` it was captured on. To help a
+reviewer (or to draft a pull-request description), call `summarize_branch` — it
+returns PR-ready markdown grouped by change type, with the touched files, risks and
+tests aggregated across the branch. Defaults to the current branch; pass `branch`
+to target another. Use `list_changes({ branch })` to filter the raw table by branch.
+
 ## Team sharing
 
 The memory **map** is meant to be committed so teammates inherit the change

@@ -1,6 +1,6 @@
 ---
-description: Change Memory dispatcher — show, search, compact, auto, share.
-argument-hint: <show|search|compact|auto|share> [args]
+description: Change Memory dispatcher — show, search, pr, compact, auto, share.
+argument-hint: <show|search|pr|compact|auto|share> [args]
 ---
 
 Route a Change Memory subcommand. The user input is in `$ARGUMENTS`. Take the
@@ -21,6 +21,13 @@ patch was loaded and truncated, offer to inspect a specific file.
 Call `search_changes` with the remaining text as `query`. If a trailing standalone
 integer is present, pass it as `limit` (else default 20). Present matches as a
 short list (`id | type | file | summary`). If empty, ask what to search for.
+
+### `pr [branch] [limit]`
+Call `summarize_branch` to produce a PR-ready summary of the changes recorded on a
+branch. If the first token looks like a branch name, pass it as `branch`; otherwise
+omit it to use the current git branch. A trailing standalone integer → `limit`.
+Present the returned markdown as-is (it's grouped by type with files/risks/tests) so
+the user can paste it into a pull request description.
 
 ### `compact [olderThanDays] [keepRecent]`
 Call `compact_memory`. First integer → `olderThanDays` (default 30), second →

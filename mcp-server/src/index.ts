@@ -15,6 +15,7 @@ import { getSessionContext } from "./tools/getSessionContext.js";
 import { showChange } from "./tools/showChange.js";
 import { listChanges } from "./tools/listChanges.js";
 import { searchChanges } from "./tools/searchChanges.js";
+import { summarizeBranch } from "./tools/summarizeBranch.js";
 import { compactMemory } from "./tools/compactMemory.js";
 import { toErrorMessage } from "./utils/errors.js";
 import { CHANGE_TYPES } from "./core/types.js";
@@ -177,6 +178,7 @@ const tools = [
         limit: { type: "number", description: "Max rows (default 20)." },
         file: { type: "string", description: "Filter by file substring." },
         type: { type: "string", enum: CHANGE_TYPES, description: "Filter by type." },
+        branch: { type: "string", description: "Filter by exact branch name." },
       },
     },
     handler: (a: any) => listChanges(a ?? {}),
@@ -195,6 +197,26 @@ const tools = [
       required: ["query"],
     },
     handler: (a: any) => searchChanges(a),
+  },
+  {
+    name: "summarize_branch",
+    description:
+      "Build a PR-ready markdown summary of the changes recorded on a branch: grouped by type, with touched files, risks and tests. Defaults to the current git branch. Read-only; never includes raw diffs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...projectPathProp,
+        branch: {
+          type: "string",
+          description: "Branch to summarize. Defaults to the current git branch.",
+        },
+        limit: {
+          type: "number",
+          description: "Max changes to enumerate, newest first (default 50).",
+        },
+      },
+    },
+    handler: (a: any) => summarizeBranch(a ?? {}),
   },
   {
     name: "compact_memory",

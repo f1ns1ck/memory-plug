@@ -17,6 +17,10 @@ export async function listChanges(input) {
         const t = input.type.toLowerCase();
         changes = changes.filter((c) => c.type.toLowerCase() === t);
     }
+    if (input.branch) {
+        const b = input.branch.toLowerCase();
+        changes = changes.filter((c) => (c.branch ?? "").toLowerCase() === b);
+    }
     const limit = input.limit && input.limit > 0 ? input.limit : 20;
     const slice = changes.slice(0, limit);
     if (!slice.length) {

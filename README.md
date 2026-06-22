@@ -162,7 +162,8 @@ what changed and why** — without you re-explaining it.
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
 | `show_change` | Show one change's metadata; the patch only when `includePatch: true`. |
 | `list_changes` | Compact table: `id \| type \| file \| summary`. |
-| `search_changes` | Search id, summary, files, reason, risk, tests. |
+| `search_changes` | Search id, summary, files, reason, risk, tests, branch, commit. |
+| `summarize_branch` | PR-ready markdown summary of a branch's changes, grouped by type, with files/risks/tests. |
 | `compact_memory` | Archive old changes into a summary; keep recent ones; preserve patches. |
 
 ## Slash commands
@@ -177,6 +178,7 @@ dispatcher to keep the command surface small.
 | `/memory-session` | Load the compact session context. |
 | `/memory show <changeId> [patch]` | Show a change (add `patch` for the diff). |
 | `/memory search <query> [limit]` | Search change history by keyword. |
+| `/memory pr [branch] [limit]` | PR-ready summary of a branch's recorded changes. |
 | `/memory compact [olderThanDays] [keepRecent]` | Archive old changes; keep recent ones. |
 | `/memory auto <on\|off\|status>` | Turn automatic capture on/off (per-machine). |
 | `/memory share <on\|off\|status>` | Turn patch sharing on/off (team-wide). |
@@ -366,11 +368,10 @@ Not included in this first version:
 - ✅ Team-shareable map with author attribution (0.2.0).
 - ✅ Opt-in patch sharing + consolidated slash commands (0.3.0).
 - ✅ Automatic capture via `PostToolUse` hook, with per-machine toggle.
+- ✅ Branch/commit awareness + `summarize_branch` PR summaries.
 
 **Next (priority order)**
 
-- **Branch/commit awareness + PR summaries** — tie each change to its branch/commit
-  and generate a change summary for a PR. Strengthens the review/onboarding use case.
 - **Optional, opt-in LLM summarizer** (pluggable `Summarizer` interface already in
   place) for richer summaries — **off by default, still offline-first**.
 - Per-file patch retrieval in `show_change` (request a single file's hunk).

@@ -8,7 +8,7 @@ import {
   recentChanges,
 } from "../core/memoryStore.js";
 import { ChangeRecord, ChangeType } from "../core/types.js";
-import { isGitRepo, getAuthor } from "../core/git.js";
+import { isGitRepo, getAuthor, getBranch, getHeadCommit } from "../core/git.js";
 import {
   buildWorkingTreeDiff,
   fingerprintDiff,
@@ -77,6 +77,8 @@ export async function runCapture(
   const id = generateChangeId(diff);
   const timestamp = new Date().toISOString();
   const author = await getAuthor(projectRoot);
+  const branch = await getBranch(projectRoot);
+  const commit = await getHeadCommit(projectRoot);
 
   // Store the full diff compressed; it stays out of the model context.
   const patchRel = await savePatch(paths.patchesDir, id, diff);
@@ -93,6 +95,8 @@ export async function runCapture(
     id,
     timestamp,
     ...(author ? { author } : {}),
+    ...(branch ? { branch } : {}),
+    ...(commit ? { commit } : {}),
     files,
     type: summary.type,
     summary: summary.summary,

@@ -34,6 +34,8 @@ export async function showChange(input: ShowChangeInput): Promise<string> {
     ``,
     `- Timestamp: ${change.timestamp}`,
     `- Author: ${change.author ?? "(unknown)"}`,
+    `- Branch: ${change.branch ?? "(unknown)"}`,
+    `- Commit: ${change.commit ?? "(unknown)"}`,
     `- Type: ${change.type}`,
     `- Summary: ${change.summary}`,
     change.reason ? `- Reason: ${change.reason}` : `- Reason: (none)`,

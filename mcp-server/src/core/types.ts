@@ -39,6 +39,12 @@ export interface ChangeRecord {
   /** Who made the change, "Name <email>" from git config. Optional: pre-v2
    * records and repos without a configured git identity omit it. */
   author?: string;
+  /** Branch the change was captured on (`git rev-parse --abbrev-ref HEAD`).
+   * Optional: pre-v3 records, detached HEAD and unborn branches omit it. */
+  branch?: string;
+  /** Short HEAD commit at capture time (`git rev-parse --short HEAD`).
+   * Optional: pre-v3 records and unborn branches omit it. */
+  commit?: string;
   files: string[];
   type: ChangeType;
   summary: string;
@@ -58,6 +64,6 @@ export const DEFAULT_CONSTRAINTS: string[] = [
   "Load detailed patches only when explicitly needed",
 ];
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const DEFAULT_MAX_BOOTSTRAP_TOKENS = 700;
 export const DEFAULT_MAX_RECENT_CHANGES = 10;

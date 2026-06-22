@@ -12,7 +12,7 @@ export const DEFAULT_CONSTRAINTS = [
     "Do not include full diffs by default",
     "Load detailed patches only when explicitly needed",
 ];
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const DEFAULT_MAX_BOOTSTRAP_TOKENS = 700;
 export const DEFAULT_MAX_RECENT_CHANGES = 10;
 //# sourceMappingURL=types.js.map
