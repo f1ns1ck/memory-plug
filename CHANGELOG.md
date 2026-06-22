@@ -4,6 +4,17 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-06-22
+
+### Added
+- **Per-file patch retrieval in `show_change`.** Pass `file: "<substring>"` to load
+  only the diff hunk(s) for matching files instead of the whole patch. The server
+  splits the stored unified diff on `diff --git` boundaries and returns just the
+  matching sections (substring match against the repo-relative path, consistent with
+  `list_changes`/`show_change` file fields). A miss lists every file in the patch so
+  the agent can correct the query. `file` takes precedence over `includePatch` and is
+  much cheaper for large, multi-file changes. No network call; read-only.
+
 ## [0.4.0] - 2026-06-22
 
 ### Added

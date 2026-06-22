@@ -160,7 +160,7 @@ what changed and why** — without you re-explaining it.
 | `set_auto_capture` | Turn auto-capture on/off for this machine (per-developer; omit `enabled` to query). |
 | `set_share_patches` | Turn patch sharing on/off for the project (team-wide via `index.json`; omit `enabled` to query). |
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
-| `show_change` | Show one change's metadata; the patch only when `includePatch: true`. |
+| `show_change` | Show one change's metadata; the full patch with `includePatch: true`, or a single file's hunk with `file: "<substring>"`. |
 | `list_changes` | Compact table: `id \| type \| file \| summary`. |
 | `search_changes` | Search id, summary, files, reason, risk, tests, branch, commit. |
 | `summarize_branch` | PR-ready markdown summary of a branch's changes, grouped by type, with files/risks/tests. |
@@ -253,6 +253,7 @@ The MCP tools (including manual `capture_change`) are unaffected.
 search_changes("token")     → finds the change
 show_change(chg_..., includePatch:false)  → metadata only
 show_change(chg_..., includePatch:true)   → full diff, on demand
+show_change(chg_..., file:"src/app.ts")   → just that file's hunk
 ```
 
 ## Example `.change-memory/session.md`
@@ -366,27 +367,7 @@ Not included in this first version:
 
 ## Roadmap
 
-**Shipped**
-
-- ✅ Team-shareable map with author attribution (0.2.0).
-- ✅ Opt-in patch sharing + consolidated slash commands (0.3.0).
-- ✅ Automatic capture via `PostToolUse` hook, with per-machine toggle.
-- ✅ Branch/commit awareness + `summarize_branch` PR summaries.
-- ✅ Opt-in agent-authored summaries on manual capture — the host model writes a
-  richer `summary`/`risk`/`type`; the server still makes **no network call** and
-  the offline heuristic remains the default. Auto-capture stays heuristic.
-
-**Next (priority order)**
-
-- Per-file patch retrieval in `show_change` (request a single file's hunk).
-- Automatic `compact_memory` on a size/age threshold.
-
-**Later**
-
-- Optional offline semantic search (local embeddings, no cloud).
-- Staged vs. unstaged capture modes.
-- Configurable token budgets and constraints via `index.json` editing helpers.
-- Tags/labels and richer search ranking.
+See [ROADMAP.md](./ROADMAP.md) for what's shipped, what's next, and later ideas.
 
 ## License
 

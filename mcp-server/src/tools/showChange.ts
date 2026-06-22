@@ -4,13 +4,18 @@ import {
   readChanges,
   findChange,
 } from "../core/memoryStore.js";
-import { readPatch, truncatePatch } from "../core/patchStore.js";
+import {
+  readPatch,
+  truncatePatch,
+  extractFilePatch,
+} from "../core/patchStore.js";
 import { notFound, invalidInput } from "../utils/errors.js";
 
 export interface ShowChangeInput {
   projectPath?: string;
   changeId: string;
   includePatch?: boolean;
+  file?: string;
 }
 
 const MAX_PATCH_LINES = 400;
@@ -49,7 +54,41 @@ export async function showChange(input: ShowChangeInput): Promise<string> {
     `- Est. tokens (full diff): ${change.token_cost_estimate}`,
   ];
 
-  if (input.includePatch) {
+  const fileQuery = input.file?.trim();
+
+  if (fileQuery) {
+    const patch = await readPatch(projectRoot, change.patch_file);
+    const { text, matched, available } = extractFilePatch(patch, fileQuery);
+    if (matched.length === 0) {
+      lines.push(
+        "",
+        `## Patch (file: ${fileQuery})`,
+        "",
+        `_No file in this change matches "${fileQuery}". ` +
+          `Files in the patch: ${available.join(", ") || "(none)"}._`,
+      );
+    } else {
+      const { text: clipped, truncated, totalLines } = truncatePatch(
+        text,
+        MAX_PATCH_LINES,
+      );
+      lines.push(
+        "",
+        `## Patch (file: ${matched.join(", ")})`,
+        "",
+        "```diff",
+        clipped,
+        "```",
+      );
+      if (truncated) {
+        lines.push(
+          "",
+          `_Patch truncated to ${MAX_PATCH_LINES} of ${totalLines} lines. ` +
+            `Open ${change.patch_file} directly for full detail._`,
+        );
+      }
+    }
+  } else if (input.includePatch) {
     const patch = await readPatch(projectRoot, change.patch_file);
     const { text, truncated, totalLines } = truncatePatch(patch, MAX_PATCH_LINES);
     lines.push("", "## Patch", "");
@@ -58,7 +97,7 @@ export async function showChange(input: ShowChangeInput): Promise<string> {
       lines.push(
         "",
         `_Patch truncated to ${MAX_PATCH_LINES} of ${totalLines} lines. ` +
-          `Inspect a specific file or open ${change.patch_file} directly for full detail._`,
+          `Request a single file with the 'file' argument, or open ${change.patch_file} directly for full detail._`,
       );
     }
   } else {

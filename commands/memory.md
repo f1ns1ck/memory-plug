@@ -11,11 +11,13 @@ use the current project). If a tool reports the memory is not initialized, run
 
 If no subcommand is given, list the available ones and stop.
 
-### `show <changeId> [patch]`
+### `show <changeId> [patch] [file <path>]`
 Call `show_change` with `changeId` (looks like `chg_YYYYMMDD_HHMMSS_hash`). Set
-`includePatch: true` ONLY if the word "patch" or "diff" is present. If no id is
-given, call `list_changes` first and ask which one. Summarize the metadata; if a
-patch was loaded and truncated, offer to inspect a specific file.
+`includePatch: true` ONLY if the word "patch" or "diff" is present. If the user
+names a specific file (or asks for "just <file>"), pass `file: "<path substring>"`
+to load only that file's hunk instead of the whole diff. If no id is given, call
+`list_changes` first and ask which one. Summarize the metadata; if a patch was
+loaded and truncated, offer to inspect a specific file via `file:`.
 
 ### `search <query> [limit]`
 Call `search_changes` with the remaining text as `query`. If a trailing standalone

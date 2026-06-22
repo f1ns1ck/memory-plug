@@ -152,7 +152,7 @@ const tools = [
     },
     {
         name: "show_change",
-        description: "Show the metadata of one change. Only includes the diff when includePatch is true (default false).",
+        description: "Show the metadata of one change. Only includes the diff when includePatch is true (default false), or pass 'file' to load just one file's hunk.",
         inputSchema: {
             type: "object",
             properties: {
@@ -161,6 +161,10 @@ const tools = [
                 includePatch: {
                     type: "boolean",
                     description: "Load the full (possibly truncated) diff. Default false.",
+                },
+                file: {
+                    type: "string",
+                    description: "Return only the diff hunk for files whose path contains this substring. Cheaper than includePatch for large changes; takes precedence over includePatch.",
                 },
             },
             required: ["changeId"],
