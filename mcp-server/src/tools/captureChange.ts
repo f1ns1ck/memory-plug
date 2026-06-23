@@ -19,6 +19,7 @@ import { savePatch } from "../core/patchStore.js";
 import { defaultSummarizer, mergeAgentSummary } from "../core/summarizer.js";
 import { estimateTokens } from "../core/tokenBudget.js";
 import { buildSessionMarkdown } from "../core/sessionBuilder.js";
+import { maybeAutoCompact } from "./compactMemory.js";
 import { MemoryError } from "../utils/errors.js";
 
 export interface CaptureChangeInput {
@@ -154,15 +155,31 @@ export async function runCapture(
   });
   await fs.writeFile(paths.sessionFile, sessionMd, "utf8");
 
+  // Auto-compaction runs once active history grows past the configured
+  // threshold. It is best-effort: a failure here must never fail the capture
+  // that already succeeded and was persisted above.
+  let compactNote = "";
+  try {
+    const compacted = await maybeAutoCompact(paths);
+    if (compacted && compacted.archived > 0) {
+      compactNote = `\nAuto-compacted ${compacted.archived} old change(s) → ${compacted.archiveFile}`;
+    }
+  } catch {
+    // Swallow — compaction is an optimization, not part of the capture contract.
+  }
+
   const message = [
     `Captured change ${id}`,
     `Type: ${record.type}`,
     `Files: ${files.length} (${record.added.length} added, ${record.modified.length} modified, ${record.removed.length} removed)`,
     record.risk.length ? `Risk: ${record.risk.join(" | ")}` : `Risk: none flagged`,
     `Patch: ${patchRel} (compressed, ~${record.token_cost_estimate} tokens uncompressed)`,
+    compactNote ? compactNote.trimStart() : null,
     ``,
     `Summary: ${record.summary}`,
-  ].join("\n");
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
 
   return { captured: true, message, changeId: id, fingerprint: fingerprintDiff(diff) };
 }

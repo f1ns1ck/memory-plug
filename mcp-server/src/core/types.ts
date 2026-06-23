@@ -31,6 +31,13 @@ export interface MemoryIndex {
   /** Opt-in: commit `patches/` with the repo so teammates can load any change's
    * diff via show_change. Default/undefined ⇒ patches stay machine-local. */
   share_patches?: boolean;
+  /** Auto-compaction trigger: once the active history grows beyond this many
+   * changes, a capture transparently archives changes older than
+   * `auto_compact_older_than_days`. `undefined` ⇒ the built-in default applies;
+   * set to 0 (or negative) to disable auto-compaction for this project. */
+  auto_compact_after_changes?: number;
+  /** Age cutoff used by auto-compaction. `undefined` ⇒ the built-in default. */
+  auto_compact_older_than_days?: number;
 }
 
 export interface ChangeRecord {
@@ -67,3 +74,7 @@ export const DEFAULT_CONSTRAINTS: string[] = [
 export const SCHEMA_VERSION = 3;
 export const DEFAULT_MAX_BOOTSTRAP_TOKENS = 700;
 export const DEFAULT_MAX_RECENT_CHANGES = 10;
+/** Active history is auto-compacted once it grows past this many changes. */
+export const DEFAULT_AUTO_COMPACT_AFTER_CHANGES = 200;
+/** Auto-compaction archives changes older than this many days. */
+export const DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS = 30;

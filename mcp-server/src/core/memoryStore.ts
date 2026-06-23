@@ -6,6 +6,8 @@ import {
   DEFAULT_CONSTRAINTS,
   DEFAULT_MAX_BOOTSTRAP_TOKENS,
   DEFAULT_MAX_RECENT_CHANGES,
+  DEFAULT_AUTO_COMPACT_AFTER_CHANGES,
+  DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS,
 } from "./types.js";
 import { MemoryPaths } from "../utils/paths.js";
 import { notInitialized } from "../utils/errors.js";
@@ -39,6 +41,8 @@ export function newIndex(projectName: string, now: string): MemoryIndex {
     max_bootstrap_tokens: DEFAULT_MAX_BOOTSTRAP_TOKENS,
     max_recent_changes: DEFAULT_MAX_RECENT_CHANGES,
     share_patches: false,
+    auto_compact_after_changes: DEFAULT_AUTO_COMPACT_AFTER_CHANGES,
+    auto_compact_older_than_days: DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS,
   };
 }
 
