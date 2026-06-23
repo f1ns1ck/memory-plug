@@ -4,6 +4,19 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-06-23
+
+### Added
+- **Automatic compaction on a size threshold.** Once active history grows past
+  `auto_compact_after_changes` (project config in `index.json`, default 200), a
+  capture transparently archives changes older than `auto_compact_older_than_days`
+  (default 30) into a `summaries/archive_*.md` file, keeping the newest
+  `max_recent_changes` active. Patch files are always preserved. Runs as a
+  best-effort step after both manual `capture_change` and `auto_capture_change` —
+  a compaction failure never fails the capture itself. Set
+  `auto_compact_after_changes` to `0` to disable. Existing projects inherit the
+  default without a schema bump. The manual `compact_memory` tool is unchanged.
+
 ## [0.5.0] - 2026-06-22
 
 ### Added

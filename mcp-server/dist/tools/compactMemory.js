@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { resolveProjectRoot, memoryPaths } from "../utils/paths.js";
 import { ensureInitialized, readChanges, writeChanges, readIndex, writeIndex, } from "../core/memoryStore.js";
+import { DEFAULT_AUTO_COMPACT_AFTER_CHANGES, DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS, } from "../core/types.js";
 import { ensureInsideRoot } from "../utils/paths.js";
 function isOlderThan(timestamp, days) {
     const t = Date.parse(timestamp);
@@ -24,24 +25,35 @@ function renderArchive(changes) {
     }
     return lines.join("\n") + "\n";
 }
-export async function compactMemory(input) {
-    const projectRoot = resolveProjectRoot(input.projectPath);
-    const paths = memoryPaths(projectRoot);
-    await ensureInitialized(paths);
+/**
+ * Core compaction routine shared by the `compact_memory` tool and the automatic
+ * size-threshold trigger. Archives changes that are both outside the keepRecent
+ * window and older than `olderThanDays`, preserving every patch file. Assumes
+ * memory is already initialized (callers guarantee it).
+ */
+export async function runCompact(paths, opts = {}) {
     const index = await readIndex(paths);
-    const keepRecent = input.keepRecent && input.keepRecent > 0
-        ? input.keepRecent
-        : index.max_recent_changes;
-    const olderThanDays = input.olderThanDays && input.olderThanDays > 0 ? input.olderThanDays : 30;
+    const keepRecent = opts.keepRecent && opts.keepRecent > 0 ? opts.keepRecent : index.max_recent_changes;
+    const olderThanDays = opts.olderThanDays && opts.olderThanDays > 0
+        ? opts.olderThanDays
+        : DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS;
     const all = await readChanges(paths); // oldest first
     if (all.length <= keepRecent) {
-        return `Nothing to compact: ${all.length} change(s) <= keepRecent (${keepRecent}).`;
+        return {
+            archived: 0,
+            remaining: all.length,
+            message: `Nothing to compact: ${all.length} change(s) <= keepRecent (${keepRecent}).`,
+        };
     }
     // Candidates for archiving: outside the keepRecent window AND old enough.
     const archivable = all.slice(0, all.length - keepRecent);
     const toArchive = archivable.filter((c) => isOlderThan(c.timestamp, olderThanDays));
     if (!toArchive.length) {
-        return `Nothing to compact: no changes older than ${olderThanDays} day(s) outside the keepRecent window.`;
+        return {
+            archived: 0,
+            remaining: all.length,
+            message: `Nothing to compact: no changes older than ${olderThanDays} day(s) outside the keepRecent window.`,
+        };
     }
     const archiveIds = new Set(toArchive.map((c) => c.id));
     const remaining = all.filter((c) => !archiveIds.has(c.id));
@@ -56,11 +68,46 @@ export async function compactMemory(input) {
         .reverse()
         .map((c) => c.id);
     await writeIndex(paths, index);
-    return [
-        `Compacted ${toArchive.length} change(s) older than ${olderThanDays} day(s).`,
-        `Kept ${remaining.length} change(s) in active history.`,
-        `Archive summary: ${path.join(".change-memory", "summaries", fileName)}`,
-        `Patch files were preserved (not deleted).`,
-    ].join("\n");
+    const archiveFile = path.join(".change-memory", "summaries", fileName);
+    return {
+        archived: toArchive.length,
+        remaining: remaining.length,
+        archiveFile,
+        message: [
+            `Compacted ${toArchive.length} change(s) older than ${olderThanDays} day(s).`,
+            `Kept ${remaining.length} change(s) in active history.`,
+            `Archive summary: ${archiveFile}`,
+            `Patch files were preserved (not deleted).`,
+        ].join("\n"),
+    };
+}
+/**
+ * Automatic compaction, run after a capture. Triggers only once the active
+ * history grows past `auto_compact_after_changes` (project config, with a
+ * built-in default). Set that field to 0 to disable. Designed to be called
+ * softly — callers should swallow errors so compaction never fails a capture.
+ *
+ * Returns the CompactResult when it ran, or null when the trigger did not fire
+ * (disabled or below threshold).
+ */
+export async function maybeAutoCompact(paths) {
+    const index = await readIndex(paths);
+    const threshold = index.auto_compact_after_changes ?? DEFAULT_AUTO_COMPACT_AFTER_CHANGES;
+    if (threshold <= 0)
+        return null; // explicitly disabled
+    const count = (await readChanges(paths)).length;
+    if (count <= threshold)
+        return null;
+    return runCompact(paths, { olderThanDays: index.auto_compact_older_than_days });
+}
+export async function compactMemory(input) {
+    const projectRoot = resolveProjectRoot(input.projectPath);
+    const paths = memoryPaths(projectRoot);
+    await ensureInitialized(paths);
+    const result = await runCompact(paths, {
+        olderThanDays: input.olderThanDays,
+        keepRecent: input.keepRecent,
+    });
+    return result.message;
 }
 //# sourceMappingURL=compactMemory.js.map

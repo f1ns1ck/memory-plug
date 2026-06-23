@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { SCHEMA_VERSION, DEFAULT_CONSTRAINTS, DEFAULT_MAX_BOOTSTRAP_TOKENS, DEFAULT_MAX_RECENT_CHANGES, } from "./types.js";
+import { SCHEMA_VERSION, DEFAULT_CONSTRAINTS, DEFAULT_MAX_BOOTSTRAP_TOKENS, DEFAULT_MAX_RECENT_CHANGES, DEFAULT_AUTO_COMPACT_AFTER_CHANGES, DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS, } from "./types.js";
 import { notInitialized } from "../utils/errors.js";
 /** True when `.change-memory/index.json` exists. */
 export async function isInitialized(paths) {
@@ -29,6 +29,8 @@ export function newIndex(projectName, now) {
         max_bootstrap_tokens: DEFAULT_MAX_BOOTSTRAP_TOKENS,
         max_recent_changes: DEFAULT_MAX_RECENT_CHANGES,
         share_patches: false,
+        auto_compact_after_changes: DEFAULT_AUTO_COMPACT_AFTER_CHANGES,
+        auto_compact_older_than_days: DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS,
     };
 }
 export async function readIndex(paths) {
