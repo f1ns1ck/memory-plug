@@ -102,7 +102,11 @@ interface RiskRule {
 }
 
 const RISK_RULES: RiskRule[] = [
-  { re: /(^|\/)(auth|authentication|login|session|oauth|jwt|token)/i, note: "Touches authentication/session logic — review access control and tests." },
+  // Match whole path tokens (bounded by `/ . _ -` or string ends) so unrelated
+  // names that merely start with a keyword — sessionBuilder.ts, tokenBudget.ts —
+  // are not mislabeled as auth. `authentication` is listed before `auth` so the
+  // longer keyword wins.
+  { re: /(^|[\/._-])(authentication|auth|login|session|oauth|jwt|token)([\/._-]|$)/i, note: "Touches authentication/session logic — review access control and tests." },
   { re: /(^|\/)(payment|billing|checkout|stripe|invoice)/i, note: "Touches payment/billing logic — verify amounts, idempotency and error paths." },
   { re: /(migration|migrate|schema)/i, note: "Touches database migration/schema — confirm forward/back compatibility." },
   { re: /(^|\/)(api|routes?|controllers?|handlers?)\//i, note: "Touches API routes/handlers — check request validation and contracts." },
@@ -114,6 +118,9 @@ const RISK_RULES: RiskRule[] = [
 function collectRisks(files: string[]): string[] {
   const notes = new Set<string>();
   for (const file of files) {
+    // Documentation carries no executable risk; a file like `session.md` or
+    // `secrets-rotation.md` must not raise code-risk flags.
+    if (DOCS_RE.test(file)) continue;
     for (const rule of RISK_RULES) {
       if (rule.re.test(file)) notes.add(rule.note);
     }
