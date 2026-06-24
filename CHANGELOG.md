@@ -4,6 +4,28 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-06-24
+
+### Fixed
+- **Memory no longer records itself.** Once the shared map
+  (`.change-memory/index.json`, `changes.jsonl`) was committed — the recommended
+  team workflow — every later `git diff` included the memory store's own files, so
+  each capture recorded `.change-memory/*` as a change and embedded the growing
+  history in its own patch (a recursive self-pollution). Working-tree diffs now
+  exclude `.change-memory/` across the unified diff, `--name-only` and
+  `--name-status`, mirroring the existing untracked-file guard. Read-only git only.
+- **Fewer false-positive risk flags.** Documentation files
+  (`.md`/`.mdx`/`.rst`/`.txt`/`.adoc` and `docs/`) no longer raise code-risk notes,
+  and the auth/session/token rule now matches whole path tokens, so
+  `sessionBuilder.ts` and `tokenBudget.ts` are no longer mislabeled "Touches
+  authentication/session logic". Genuine auth paths (`auth/`, `login`, `session/`,
+  `oauth`, `jwt`) still flag.
+
+### Changed
+- Version manifests realigned: `.claude-plugin/marketplace.json` was stuck at
+  `0.3.0` while the package and plugin reported `0.6.0`; all three now report
+  `0.6.1`.
+
 ## [0.6.0] - 2026-06-23
 
 ### Added

@@ -8,9 +8,9 @@ const execFileAsync = promisify(execFile);
  * string, and never run write operations (commit, add, checkout, etc.).
  */
 const ALLOWED_ARGS = [
-    ["diff"],
-    ["diff", "--name-only"],
-    ["diff", "--name-status"],
+    ["diff", "--", ".", ":(exclude).change-memory"],
+    ["diff", "--name-only", "--", ".", ":(exclude).change-memory"],
+    ["diff", "--name-status", "--", ".", ":(exclude).change-memory"],
     ["status", "--porcelain"],
     ["status", "--porcelain", "--untracked-files=all"],
     ["rev-parse", "--is-inside-work-tree"],
@@ -19,6 +19,16 @@ const ALLOWED_ARGS = [
     ["config", "user.name"],
     ["config", "user.email"],
 ];
+/**
+ * Pathspec appended to every working-tree diff. It (a) scopes the diff to the
+ * project tree (`.`) and (b) excludes the memory store itself. Without the
+ * exclusion, once teammates commit the shared map (.change-memory/index.json,
+ * changes.jsonl) every later `git diff` would show those files, so each capture
+ * would record .change-memory/* as a change and embed the growing history in its
+ * own patch — a recursive self-pollution. This mirrors the untracked-file guard
+ * in getUntrackedFiles, which already skips the memory dir.
+ */
+const EXCLUDE_MEMORY = ["--", ".", ":(exclude).change-memory"];
 function assertAllowed(args) {
     const ok = ALLOWED_ARGS.some((allowed) => allowed.length === args.length && allowed.every((a, i) => a === args[i]));
     if (!ok) {
@@ -49,12 +59,13 @@ export async function isGitRepo(cwd) {
         return false;
     }
 }
-/** Full unified working-tree diff (unstaged + tracked changes). */
+/** Full unified working-tree diff (unstaged + tracked changes), excluding the
+ * memory store itself. */
 export async function getDiff(cwd) {
-    return git(cwd, ["diff"]);
+    return git(cwd, ["diff", ...EXCLUDE_MEMORY]);
 }
 export async function getChangedFiles(cwd) {
-    const out = await git(cwd, ["diff", "--name-only"]);
+    const out = await git(cwd, ["diff", "--name-only", ...EXCLUDE_MEMORY]);
     return out
         .split("\n")
         .map((l) => l.trim())
@@ -62,7 +73,7 @@ export async function getChangedFiles(cwd) {
 }
 /** Parse `git diff --name-status` into added/modified/removed buckets. */
 export async function getNameStatus(cwd) {
-    const out = await git(cwd, ["diff", "--name-status"]);
+    const out = await git(cwd, ["diff", "--name-status", ...EXCLUDE_MEMORY]);
     const entries = [];
     for (const line of out.split("\n")) {
         const trimmed = line.trim();
