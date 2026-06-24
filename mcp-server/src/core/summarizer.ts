@@ -80,6 +80,17 @@ const DOCS_RE = /\.(md|mdx|rst|txt|adoc)$|(^|\/)docs?(\/|$)/i;
 const CHORE_RE =
   /(package(-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|\.gitignore|tsconfig.*\.json|\.eslintrc|\.prettierrc|dockerfile|\.ya?ml|\.toml|\.ini|makefile)$/i;
 
+/**
+ * Path-only change classification. By design this only recognizes categories a
+ * path can actually prove — test / docs / chore — and returns "unknown" for
+ * anything involving source code or a mix of areas.
+ *
+ * Deliberately NOT "improved" to guess feature/fix/refactor by majority: a file
+ * path cannot distinguish those, and a confident-looking but wrong label is worse
+ * than an honest "unknown". When the type matters, the host model supplies an
+ * accurate `llmType` on a deliberate `capture_change` (see mergeAgentSummary);
+ * auto-capture intentionally stays heuristic.
+ */
 function classifyByPaths(files: string[], hint?: ChangeType): ChangeType {
   if (hint && hint !== "unknown") return hint;
   if (files.length === 0) return "unknown";

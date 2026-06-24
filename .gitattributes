@@ -1,0 +1,9 @@
+# Normalize line endings across platforms: store text as LF in git and check it
+# out as LF everywhere. mcp-server/dist/ is committed on purpose (so the plugin
+# runs without a post-install build step — see .gitignore), and committing build
+# output on Windows otherwise produced repeated CRLF/LF churn. This stops it.
+* text=auto eol=lf
+
+# Compressed patch blobs are binary — never run EOL conversion on them. (They are
+# only tracked when a project opts into patch sharing.)
+*.gz binary
