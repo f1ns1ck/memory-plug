@@ -5,9 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { initMemory } from "./tools/initMemory.js";
 import { captureChange } from "./tools/captureChange.js";
-import { autoCaptureChange } from "./tools/autoCaptureChange.js";
-import { setAutoCapture } from "./tools/setAutoCapture.js";
-import { setSharePatches } from "./tools/setSharePatches.js";
+import { configure } from "./tools/configure.js";
 import { getSessionContext } from "./tools/getSessionContext.js";
 import { showChange } from "./tools/showChange.js";
 import { listChanges } from "./tools/listChanges.js";
@@ -81,59 +79,23 @@ const tools = [
         handler: (a) => captureChange(a ?? {}),
     },
     {
-        name: "auto_capture_change",
-        description: "Automatically capture the current working-tree diff after Claude edits files. Debounced and deduplicated for hook usage. Wrapper over capture_change: skips on clean tree, duplicate diff, or within the debounce window. Read-only git; never commits or modifies the repo.",
+        name: "configure",
+        description: "Adjust Change Memory settings for this project. 'autoCapture' is a per-machine toggle for automatic capture (stored in the local, gitignored auto-capture.json — never affects teammates). 'sharePatches' is a team decision (stored in the committed index.json) for whether patches/ is committed so teammates can load any change's diff; toggling it regenerates the managed .gitignore. Provide a field to set it, omit a field to leave it unchanged; omit both to report the current state of each.",
         inputSchema: {
             type: "object",
             properties: {
                 ...projectPathProp,
-                reason: { type: "string", description: "Why this change was made (free text)." },
-                sourceTool: {
-                    type: "string",
-                    description: "Tool that triggered the capture (e.g. Write, Edit, MultiEdit).",
-                },
-                sourceFile: { type: "string", description: "File that was edited." },
-                debounceMs: {
-                    type: "number",
-                    description: "Minimum ms between captures. Default 30000.",
-                },
-                asHookOutput: {
+                autoCapture: {
                     type: "boolean",
-                    description: "Return Claude Code hook-compatible JSON instead of human text.",
+                    description: "true to enable automatic capture on this machine, false to disable. Omit to leave unchanged.",
+                },
+                sharePatches: {
+                    type: "boolean",
+                    description: "true to commit patches/ for the team, false to keep them machine-local. Omit to leave unchanged.",
                 },
             },
         },
-        handler: (a) => autoCaptureChange(a ?? {}),
-    },
-    {
-        name: "set_auto_capture",
-        description: "Turn automatic capture on or off for this machine (per-developer, stored in the local auto-capture.json — not committed). Omit 'enabled' to report the current state.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                ...projectPathProp,
-                enabled: {
-                    type: "boolean",
-                    description: "true to enable auto-capture, false to disable. Omit to query.",
-                },
-            },
-        },
-        handler: (a) => setAutoCapture(a ?? {}),
-    },
-    {
-        name: "set_share_patches",
-        description: "Turn patch sharing on or off for this project (team decision, stored as share_patches in the committed index.json). ON commits patches/ so teammates can load any change's diff; OFF keeps patches machine-local. Regenerates the managed .gitignore. Omit 'enabled' to report the current state.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                ...projectPathProp,
-                enabled: {
-                    type: "boolean",
-                    description: "true to commit patches/, false to keep them local-only. Omit to query.",
-                },
-            },
-        },
-        handler: (a) => setSharePatches(a ?? {}),
+        handler: (a) => configure(a ?? {}),
     },
     {
         name: "get_session_context",

@@ -4,6 +4,21 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-06-24
+
+### Changed
+- **Smaller MCP tool surface (11 → 9).** The two per-setting toggles
+  `set_auto_capture` and `set_share_patches` are replaced by a single `configure`
+  tool taking optional `autoCapture` and/or `sharePatches` fields (omit a field to
+  leave it unchanged, omit both to query). The scopes are unchanged — `autoCapture`
+  stays a per-machine flag in the local `auto-capture.json`, `sharePatches` stays a
+  team decision in the committed `index.json`. The `/memory auto` and `/memory share`
+  commands are unaffected and now route through `configure`.
+- **`auto_capture_change` is no longer exposed as an MCP tool.** It was only ever
+  meant for the `PostToolUse` hook, which calls the bundled
+  `cli/autoCapture.js` directly (no MCP round-trip), so nothing about automatic
+  capture changes. Use `capture_change` for manual, deliberate snapshots.
+
 ## [0.6.1] - 2026-06-24
 
 ### Fixed

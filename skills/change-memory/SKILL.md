@@ -36,8 +36,9 @@ changes; reserve manual `capture_change` for explicit checkpoints (see below).
 
 ## Capturing changes
 
-Capture is **automatic**. A `PostToolUse` hook calls `auto_capture_change` after
-`Write`/`Edit`/`MultiEdit`, with built-in debounce and dedupe. So:
+Capture is **automatic**. A bundled `PostToolUse` hook captures changes after
+`Write`/`Edit`/`MultiEdit`, with built-in debounce and dedupe (it runs the plugin's
+auto-capture command directly — there is no MCP tool to call for this). So:
 
 - **Do not** call `capture_change` reflexively after every edit — the hook already
   records changes, and a manual call would create a duplicate snapshot of the same
@@ -88,9 +89,10 @@ rebuilds the snapshot from the committed map.
 
 By default `patches/` stay machine-local, so a teammate can read any change's
 metadata but `show_change` with `includePatch: true` only works for changes
-captured on their own machine. To share patches too, use `set_share_patches`
-(`/memory share on|off|status`, or `init_memory` with `sharePatches: true` at
-setup): `patches/` are committed and the managed `.gitignore` is regenerated. The
+captured on their own machine. To share patches too, use `configure` with
+`sharePatches: true` (`/memory share on|off|status`, or `init_memory` with
+`sharePatches: true` at setup): `patches/` are committed and the managed
+`.gitignore` is regenerated. The
 flag is stored as `share_patches` in the committed `index.json` (a team-wide
 decision, unlike the per-machine auto-capture toggle); pass `enabled: false` to
 revert. This adds compressed patch blobs to git, so leave it OFF unless the team
@@ -98,10 +100,10 @@ wants full diffs to travel.
 
 ## Toggling auto-capture
 
-Auto-capture can be turned off per-developer with `set_auto_capture`
-(`/memory auto on|off|status`). The toggle lives in the local, gitignored
-`auto-capture.json`, so it never affects teammates. When off, only manual
-`capture_change` records changes.
+Auto-capture can be turned off per-developer with `configure`
+(`autoCapture: false`, or `/memory auto on|off|status`). The toggle lives in the
+local, gitignored `auto-capture.json`, so it never affects teammates. When off,
+only manual `capture_change` records changes.
 
 ## Setup
 
