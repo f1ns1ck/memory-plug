@@ -73,6 +73,11 @@ export interface ChangeRecord {
    * host model may supply these on a deliberate `capture_change`; auto-capture
    * leaves them empty. Schema-compatible: pre-v4 records simply omit the field. */
   tags?: string[];
+  /** Whether the summary is agent-authored. `false` marks a heuristic-only
+   * record awaiting lazy enrichment — the session snapshot surfaces these so the
+   * host model can improve them via `capture_change({ enrichChangeId })`.
+   * Absent on pre-v5 records, which are never offered for enrichment. */
+  enriched?: boolean;
   patch_file: string;
   token_cost_estimate: number;
 }
@@ -83,9 +88,10 @@ export const DEFAULT_CONSTRAINTS: string[] = [
   "Load detailed patches only when explicitly needed",
 ];
 
-// v4 adds the optional `tags[]` field to ChangeRecord. The bump is informational
-// — reads tolerate older records (tags simply absent), so no migration is needed.
-export const SCHEMA_VERSION = 4;
+// v4 adds the optional `tags[]` field to ChangeRecord; v5 adds the optional
+// `enriched` flag for lazy agent enrichment. The bumps are informational —
+// reads tolerate older records (fields simply absent), so no migration runs.
+export const SCHEMA_VERSION = 5;
 export const DEFAULT_MAX_BOOTSTRAP_TOKENS = 700;
 export const DEFAULT_MAX_RECENT_CHANGES = 10;
 /** Active history is auto-compacted once it grows past this many changes. */

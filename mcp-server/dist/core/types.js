@@ -12,9 +12,10 @@ export const DEFAULT_CONSTRAINTS = [
     "Do not include full diffs by default",
     "Load detailed patches only when explicitly needed",
 ];
-// v4 adds the optional `tags[]` field to ChangeRecord. The bump is informational
-// — reads tolerate older records (tags simply absent), so no migration is needed.
-export const SCHEMA_VERSION = 4;
+// v4 adds the optional `tags[]` field to ChangeRecord; v5 adds the optional
+// `enriched` flag for lazy agent enrichment. The bumps are informational —
+// reads tolerate older records (fields simply absent), so no migration runs.
+export const SCHEMA_VERSION = 5;
 export const DEFAULT_MAX_BOOTSTRAP_TOKENS = 700;
 export const DEFAULT_MAX_RECENT_CHANGES = 10;
 /** Active history is auto-compacted once it grows past this many changes. */

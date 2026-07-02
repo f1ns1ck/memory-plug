@@ -4,6 +4,30 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-07-02
+
+### Added
+- **Automatic session bootstrap.** A new `SessionStart` hook injects the compact
+  change snapshot into context when a session starts (or after `/clear`) — no
+  more running `/memory-session` by hand. Skips silently when memory isn't
+  initialized; never blocks session start.
+- **Lazy enrichment of heuristic captures.** Records whose summary is
+  heuristic-only are stored with `enriched: false`; the session snapshot lists
+  up to three of them under **Awaiting Enrichment**, and the agent can upgrade
+  one in place with `capture_change({ enrichChangeId, llmSummary, ... })` —
+  same id, patch and timestamp, only the summary/risk/type/tags improve. This
+  finally routes the richest agent-authored summaries to auto-captures while the
+  hook itself stays offline and heuristic. `schema_version` 5 (informational).
+- **Retrieval evaluation harness.** `test/retrievalBenchmark.test.mjs` builds a
+  fixture history of heuristic-only summaries via the real summarizer and asserts
+  top-1 accuracy ≥ 80% on a fixed query set — the roadmap's capture-quality bar,
+  now measured instead of eyeballed.
+
+### Changed
+- **Whole-word search matching.** `search_changes` no longer substring-matches:
+  "auth" stops hitting every record's "author attribution". camelCase
+  identifiers are split, so "cache" still finds `cacheStore.ts`.
+
 ## [0.8.0] - 2026-07-02
 
 ### Added

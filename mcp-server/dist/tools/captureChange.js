@@ -9,7 +9,7 @@ import { defaultSummarizer, mergeAgentSummary } from "../core/summarizer.js";
 import { estimateTokens } from "../core/tokenBudget.js";
 import { buildSessionMarkdown } from "../core/sessionBuilder.js";
 import { maybeAutoCompact } from "./compactMemory.js";
-import { MemoryError } from "../utils/errors.js";
+import { MemoryError, invalidInput, notFound } from "../utils/errors.js";
 function uniq(list) {
     return [...new Set(list)];
 }
@@ -94,6 +94,9 @@ export async function runCapture(input, pre, opts) {
         type: input.llmType,
     });
     const tags = sanitizeTags(input.tags);
+    // A capture is "enriched" only when the agent authored the summary itself;
+    // heuristic-only records are flagged for lazy enrichment at session load.
+    const enriched = typeof input.llmSummary === "string" && !!input.llmSummary.trim();
     const record = {
         id,
         timestamp,
@@ -110,6 +113,7 @@ export async function runCapture(input, pre, opts) {
         risk: summary.risk,
         tests: input.tests ?? [],
         ...(tags.length ? { tags } : {}),
+        enriched,
         patch_file: patchRel,
         token_cost_estimate: estimateTokens(diff),
     };
@@ -170,8 +174,61 @@ export async function runCapture(input, pre, opts) {
         .join("\n");
     return { captured: true, message, changeId: id, coalesced, fingerprint: fingerprintDiff(diff) };
 }
-/** MCP `capture_change` tool — unchanged external behavior. */
+/**
+ * Lazy enrichment: apply agent-authored fields to an existing record without
+ * touching git or the stored patch. The record keeps its id, timestamp, files
+ * and patch; only summary/risk/type/tags change and `enriched` flips to true.
+ */
+async function enrichExistingChange(input) {
+    const projectRoot = resolveProjectRoot(input.projectPath);
+    const paths = memoryPaths(projectRoot);
+    await ensureInitialized(paths);
+    const id = input.enrichChangeId;
+    if (typeof input.llmSummary !== "string" || !input.llmSummary.trim()) {
+        throw invalidInput("enrichChangeId requires llmSummary — enrichment means replacing the heuristic summary with your own.");
+    }
+    const changes = await readChanges(paths);
+    const rec = changes.find((c) => c.id === id);
+    if (!rec) {
+        throw notFound(`No change with id ${id}. It may have been compacted away; use list_changes to see active records.`);
+    }
+    const merged = mergeAgentSummary({
+        type: rec.type,
+        summary: rec.summary,
+        added: rec.added,
+        modified: rec.modified,
+        removed: rec.removed,
+        risk: rec.risk,
+    }, { summary: input.llmSummary, risk: input.llmRisk, type: input.llmType });
+    const newTags = sanitizeTags(input.tags);
+    const tags = uniq([...(rec.tags ?? []), ...newTags]);
+    const updated = {
+        ...rec,
+        type: merged.type,
+        summary: merged.summary,
+        risk: merged.risk,
+        ...(tags.length ? { tags } : {}),
+        ...(input.reason?.trim() ? { reason: input.reason.trim() } : {}),
+        enriched: true,
+    };
+    await replaceChange(paths, updated);
+    // Summaries changed — refresh the on-disk snapshot to match.
+    const index = await readIndex(paths);
+    const recent = await recentChanges(paths, index.max_recent_changes);
+    await fs.writeFile(paths.sessionFile, buildSessionMarkdown({ index, recent, maxTokens: index.max_bootstrap_tokens }), "utf8");
+    return [
+        `Enriched change ${id}`,
+        `Type: ${updated.type}`,
+        updated.risk.length ? `Risk: ${updated.risk.join(" | ")}` : `Risk: none flagged`,
+        ``,
+        `Summary: ${updated.summary}`,
+    ].join("\n");
+}
+/** MCP `capture_change` tool. With `enrichChangeId` it updates an existing
+ * record's agent fields instead of capturing the working tree. */
 export async function captureChange(input) {
+    if (input.enrichChangeId)
+        return enrichExistingChange(input);
     const result = await runCapture(input);
     return result.message;
 }

@@ -1,6 +1,19 @@
 {
-  "description": "Automatically capture meaningful code changes into Change Memory after Claude edits files.",
+  "description": "Automatically capture meaningful code changes into Change Memory after Claude edits files, and inject the compact change snapshot when a session starts.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/cli/sessionStart.js\"",
+            "timeout": 15,
+            "statusMessage": "Loading Change Memory"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",

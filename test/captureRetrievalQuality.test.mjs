@@ -114,6 +114,21 @@ test("scoreChange: a non-matching change scores zero (no recency leak)", () => {
   assert.equal(scoreChange(REC({ summary: "nothing here" }), ["auth"], 1), 0);
 });
 
+test("scoreChange: whole-word matching — 'auth' does not hit 'author'", () => {
+  assert.equal(
+    scoreChange(REC({ summary: "recorded author attribution on changes" }), ["auth"], 0),
+    0,
+    "term inside an unrelated word must not match",
+  );
+  assert.ok(scoreChange(REC({ summary: "fix auth flow" }), ["auth"], 0) > 0);
+  assert.ok(scoreChange(REC({ files: ["src/auth/login.ts"] }), ["auth"], 0) > 0);
+});
+
+test("scoreChange: camelCase identifiers match their word parts", () => {
+  assert.ok(scoreChange(REC({ files: ["src/cacheStore.ts"] }), ["cache"], 0) > 0);
+  assert.ok(scoreChange(REC({ summary: "tuned tokenBudget limits" }), ["budget"], 0) > 0);
+});
+
 // --- Tags end-to-end -----------------------------------------------------------
 
 test("capture_change stores sanitized tags; list/search filter by tag", async () => {

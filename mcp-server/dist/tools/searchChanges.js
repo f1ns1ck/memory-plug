@@ -9,7 +9,26 @@ function fields(c) {
         { weight: 1.5, text: c.type },
         { weight: 1, text: c.files.join(" ") },
         { weight: 0.5, text: [c.id, c.branch ?? "", c.commit ?? "", ...c.risk, ...c.tests].join(" ") },
-    ].map((f) => ({ weight: f.weight, text: f.text.toLowerCase() }));
+    ].map((f) => ({ weight: f.weight, text: normalize(f.text) }));
+}
+/**
+ * Split camelCase identifiers into words and lower-case, so "cacheStore.ts"
+ * matches the query "cache" even under whole-word matching.
+ */
+function normalize(text) {
+    return text.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+}
+function escapeRe(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+/**
+ * Whole-word matcher for one query term. Substring matching let "auth" hit
+ * "author attribution" in every record; requiring word boundaries keeps a term
+ * from matching inside an unrelated word. Identifier characters ($ _ digits)
+ * count as word-internal, everything else is a boundary.
+ */
+function termRe(term) {
+    return new RegExp(`(^|[^a-z0-9_$])${escapeRe(term)}($|[^a-z0-9_$])`);
 }
 /**
  * Recency boost in [0, 1]: newest change ⇒ 1, oldest ⇒ 0, linear by rank. Folded
@@ -22,8 +41,9 @@ export function scoreChange(c, terms, recency) {
     const fs = fields(c);
     let score = 0;
     for (const term of terms) {
+        const re = termRe(normalize(term));
         for (const f of fs) {
-            if (f.text.includes(term))
+            if (re.test(f.text))
                 score += f.weight;
         }
     }

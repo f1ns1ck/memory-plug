@@ -34,6 +34,29 @@ function renderRisks(changes: ChangeRecord[]): string {
   return `\n## Risks\n\n${[...risks].map((r) => `- ${r}`).join("\n")}\n`;
 }
 
+/**
+ * Lazy-enrichment prompt: list recent heuristic-only records so the host model
+ * can upgrade their summaries when it knows (or can cheaply learn) what each
+ * change did. Capped to keep the bootstrap budget intact.
+ */
+const MAX_ENRICHMENT_HINTS = 3;
+
+function renderEnrichment(changes: ChangeRecord[]): string {
+  const pending = changes
+    .filter((c) => c.enriched === false)
+    .slice(0, MAX_ENRICHMENT_HINTS);
+  if (!pending.length) return "";
+  const ids = pending.map((c) => `- ${c.id}`).join("\n");
+  return `\n## Awaiting Enrichment
+
+These recent changes only have heuristic summaries. If you know what a change
+did (or its metadata makes it clear), improve it:
+capture_change({ enrichChangeId, llmSummary, llmRisk?, llmType?, tags? }).
+
+${ids}
+`;
+}
+
 const CONSTRAINTS_BLOCK = `## Constraints
 
 - Keep context compact.
@@ -52,8 +75,10 @@ function compose(
   changes: ChangeRecord[],
   activeFiles: string[],
   includeRisks: boolean,
+  includeEnrichment: boolean,
 ): string {
   const risksBlock = includeRisks ? renderRisks(changes) : "";
+  const enrichmentBlock = includeEnrichment ? renderEnrichment(changes) : "";
   return `# Session Context
 
 Project: ${index.project_name}
@@ -72,7 +97,7 @@ ${renderList(activeFiles, "_None tracked._")}
 ## Open Issues
 
 ${renderList(index.unresolved_items, "_None._")}
-${risksBlock}
+${risksBlock}${enrichmentBlock}
 ${CONSTRAINTS_BLOCK}
 
 ${TOOLS_BLOCK}
@@ -81,15 +106,18 @@ ${TOOLS_BLOCK}
 
 /**
  * Render the snapshot, degrading until it fits within `maxTokens`.
- * Degradation order: drop risks -> trim active files -> drop oldest changes.
+ * Degradation order: drop risks -> drop enrichment hints -> trim active files
+ * -> drop oldest changes.
  */
 export function buildSessionContext(input: SessionInput): string {
   const { index, maxTokens } = input;
   let changes = [...input.recent];
   let activeFiles = [...index.active_files];
   let includeRisks = true;
+  let includeEnrichment = true;
 
-  const render = () => compose(index, changes, activeFiles, includeRisks);
+  const render = () =>
+    compose(index, changes, activeFiles, includeRisks, includeEnrichment);
 
   if (estimateTokens(render()) <= maxTokens) return render();
 
@@ -97,13 +125,17 @@ export function buildSessionContext(input: SessionInput): string {
   includeRisks = false;
   if (estimateTokens(render()) <= maxTokens) return render();
 
-  // 2) Trim active files progressively.
+  // 2) Drop enrichment hints — nice-to-have, never at the cost of history.
+  includeEnrichment = false;
+  if (estimateTokens(render()) <= maxTokens) return render();
+
+  // 3) Trim active files progressively.
   while (activeFiles.length > 3 && estimateTokens(render()) > maxTokens) {
     activeFiles = activeFiles.slice(0, activeFiles.length - 1);
   }
   if (estimateTokens(render()) <= maxTokens) return render();
 
-  // 3) Drop oldest changes (keep at least one).
+  // 4) Drop oldest changes (keep at least one).
   while (changes.length > 1 && estimateTokens(render()) > maxTokens) {
     changes = changes.slice(0, changes.length - 1);
   }

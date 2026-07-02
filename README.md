@@ -155,7 +155,7 @@ what changed and why** — without you re-explaining it.
 | Tool | Purpose |
 | --- | --- |
 | `init_memory` | Create `.change-memory/` for the project. |
-| `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. Accepts optional agent-authored `llmSummary`/`llmRisk`/`llmType` (host model, no network) and `tags[]`. |
+| `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. Accepts optional agent-authored `llmSummary`/`llmRisk`/`llmType` (host model, no network) and `tags[]`. With `enrichChangeId`, applies those fields to an existing record in place (lazy enrichment) instead of capturing. |
 | `configure` | Adjust settings: `autoCapture` (per-machine toggle) and/or `sharePatches` (team-wide via `index.json`). Omit a field to leave it unchanged; omit both to query. |
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
 | `show_change` | Show one change's metadata; the full patch with `includePatch: true`, or a single file's hunk with `file: "<substring>"`. |
@@ -180,6 +180,14 @@ dispatcher to keep the command surface small.
 | `/memory compact [olderThanDays] [keepRecent]` | Archive old changes; keep recent ones. |
 | `/memory auto <on\|off\|status>` | Turn automatic capture on/off (per-machine). |
 | `/memory share <on\|off\|status>` | Turn patch sharing on/off (team-wide). |
+
+## Automatic session bootstrap
+
+When a session starts (or after `/clear`), a bundled `SessionStart` hook injects
+the compact change snapshot into context automatically — the same budget-aware
+markdown `get_session_context` returns, never a full diff. You no longer need to
+run `/memory-session` by hand; it remains available for reloading mid-session.
+If memory isn't initialized for the project, the hook skips silently.
 
 ## Automatic capture
 

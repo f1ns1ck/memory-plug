@@ -26,7 +26,9 @@ changes; reserve manual `capture_change` for explicit checkpoints (see below).
 
 ## Workflow
 
-1. Start with `get_session_context`.
+1. Start with `get_session_context` — unless a `SessionStart` hook already
+   injected the snapshot (look for a `# Session Context` block in context);
+   in that case don't reload it, just use it.
 2. Use `list_changes` to inspect recent work.
 3. Use `search_changes` to find relevant historical changes.
 4. Use `show_change` with `includePatch: false` first.
@@ -68,6 +70,27 @@ change — do **not** fetch anything or call any external model. The server neve
 contacts an LLM and holds no keys; these fields are simply your words. Any field
 you omit falls back to the heuristic, so partial input is fine. **Auto-capture
 stays heuristic** — only enrich deliberate, named checkpoints this way.
+
+### Lazy enrichment of auto-captures
+
+Auto-captured records start heuristic-only (`enriched: false`). The session
+snapshot lists up to three of them under **Awaiting Enrichment**. Upgrade a
+record in place with:
+
+```
+capture_change({ enrichChangeId: "chg_...", llmSummary: "...", llmRisk?, llmType?, tags? })
+```
+
+This does **not** capture a new snapshot — same id, patch and timestamp; only
+the summary/risk/type/tags improve and the flag flips. Rules:
+
+- **Enrich what you know.** If the record covers work you just did this session,
+  write the summary immediately from memory — it costs nothing.
+- For older records, `show_change(changeId)` (metadata only, **no patch**) is
+  usually enough to write an accurate line. Do not load full patches just to
+  enrich; skip records you cannot summarize confidently.
+- `llmSummary` is required in enrichment mode; keep it one concise sentence
+  covering *what* and *why*.
 
 ## PR summaries
 
