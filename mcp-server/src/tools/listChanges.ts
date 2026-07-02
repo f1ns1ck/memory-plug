@@ -8,6 +8,7 @@ export interface ListChangesInput {
   file?: string;
   type?: string;
   branch?: string;
+  tag?: string;
 }
 
 function primaryFile(c: ChangeRecord): string {
@@ -35,6 +36,10 @@ export async function listChanges(input: ListChangesInput): Promise<string> {
   if (input.branch) {
     const b = input.branch.toLowerCase();
     changes = changes.filter((c) => (c.branch ?? "").toLowerCase() === b);
+  }
+  if (input.tag) {
+    const want = input.tag.toLowerCase();
+    changes = changes.filter((c) => (c.tags ?? []).some((t) => t.toLowerCase() === want));
   }
 
   const limit = input.limit && input.limit > 0 ? input.limit : 20;

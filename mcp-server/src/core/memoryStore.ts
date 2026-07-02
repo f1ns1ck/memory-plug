@@ -8,6 +8,7 @@ import {
   DEFAULT_MAX_RECENT_CHANGES,
   DEFAULT_AUTO_COMPACT_AFTER_CHANGES,
   DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS,
+  DEFAULT_COALESCE_WINDOW_MS,
 } from "./types.js";
 import { MemoryPaths } from "../utils/paths.js";
 import { notInitialized } from "../utils/errors.js";
@@ -43,6 +44,7 @@ export function newIndex(projectName: string, now: string): MemoryIndex {
     share_patches: false,
     auto_compact_after_changes: DEFAULT_AUTO_COMPACT_AFTER_CHANGES,
     auto_compact_older_than_days: DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS,
+    coalesce_window_ms: DEFAULT_COALESCE_WINDOW_MS,
   };
 }
 
@@ -94,6 +96,24 @@ export async function writeChanges(
 ): Promise<void> {
   const body = changes.map((c) => JSON.stringify(c)).join("\n");
   await fs.writeFile(paths.changesFile, body.length ? body + "\n" : "", "utf8");
+}
+
+/**
+ * Replace an existing change (matched by id) in place, preserving its position
+ * in history. Used by auto-capture coalescing to fold a burst of edits into one
+ * evolving record. Returns true when a record was replaced, false when the id is
+ * absent (e.g. compacted away) so the caller can fall back to appending.
+ */
+export async function replaceChange(
+  paths: MemoryPaths,
+  change: ChangeRecord,
+): Promise<boolean> {
+  const changes = await readChanges(paths);
+  const idx = changes.findIndex((c) => c.id === change.id);
+  if (idx === -1) return false;
+  changes[idx] = change;
+  await writeChanges(paths, changes);
+  return true;
 }
 
 /** Most recent `limit` changes (newest first). */

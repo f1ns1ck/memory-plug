@@ -1,6 +1,6 @@
 {
   "name": "change-memory",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Compact local change memory for Claude Code, exposed as an MCP server.",
   "author": "f1ns1ck",
   "homepage": "https://github.com/f1ns1ck/memory-plug/tree/main",

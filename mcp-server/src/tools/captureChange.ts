@@ -5,6 +5,8 @@ import {
   readIndex,
   writeIndex,
   appendChange,
+  replaceChange,
+  readChanges,
   recentChanges,
 } from "../core/memoryStore.js";
 import { ChangeRecord, ChangeType } from "../core/types.js";
@@ -38,18 +40,50 @@ export interface CaptureChangeInput {
   llmSummary?: string;
   llmRisk?: string[];
   llmType?: ChangeType;
+  /** Optional free-form labels for retrieval. Trimmed, lower-cased, de-duped and
+   * capped; an empty result is stored as no field at all (schema-light). */
+  tags?: string[];
+}
+
+/** Internal capture options not exposed on the MCP tool surface. */
+export interface RunCaptureOptions {
+  /**
+   * When set and the change still exists, update that record in place (keep its
+   * id, overwrite its patch/summary/files/timestamp) instead of appending a new
+   * one. Used by auto-capture coalescing to fold a burst of edits into one
+   * evolving change. Falls back to a normal append if the id is gone.
+   */
+  replaceChangeId?: string;
 }
 
 export interface CaptureResult {
   captured: boolean;
   message: string;
   changeId?: string;
+  /** True when an existing record was updated in place (coalesced). */
+  coalesced?: boolean;
   /** Fingerprint of the captured working-tree diff (only when captured). */
   fingerprint?: string;
 }
 
 function uniq(list: string[]): string[] {
   return [...new Set(list)];
+}
+
+/** Normalize agent-supplied tags: trim, lower-case, drop blanks, de-dupe, cap. */
+function sanitizeTags(tags?: string[]): string[] {
+  if (!Array.isArray(tags)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of tags) {
+    if (typeof raw !== "string") continue;
+    const v = raw.trim().toLowerCase();
+    if (!v || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+    if (out.length >= 12) break;
+  }
+  return out;
 }
 
 /**
@@ -64,6 +98,7 @@ function uniq(list: string[]): string[] {
 export async function runCapture(
   input: CaptureChangeInput,
   pre?: WorkingTreeDiff,
+  opts?: RunCaptureOptions,
 ): Promise<CaptureResult> {
   const projectRoot = resolveProjectRoot(input.projectPath);
   const paths = memoryPaths(projectRoot);
@@ -85,7 +120,23 @@ export async function runCapture(
   }
 
   const { diff, files, nameStatus } = wt;
-  const id = generateChangeId(diff);
+
+  // Coalesce target: reuse the existing record's id (and patch slot) only if it
+  // still exists. Otherwise generate a fresh id and append as usual.
+  let id: string;
+  let coalesced = false;
+  if (opts?.replaceChangeId) {
+    const existing = await readChanges(paths);
+    if (existing.some((c) => c.id === opts.replaceChangeId)) {
+      id = opts.replaceChangeId;
+      coalesced = true;
+    } else {
+      id = generateChangeId(diff);
+    }
+  } else {
+    id = generateChangeId(diff);
+  }
+
   const timestamp = new Date().toISOString();
   const author = await getAuthor(projectRoot);
   const branch = await getBranch(projectRoot);
@@ -108,6 +159,7 @@ export async function runCapture(
     risk: input.llmRisk,
     type: input.llmType,
   });
+  const tags = sanitizeTags(input.tags);
 
   const record: ChangeRecord = {
     id,
@@ -124,11 +176,19 @@ export async function runCapture(
     reason: input.reason?.trim() ?? "",
     risk: summary.risk,
     tests: input.tests ?? [],
+    ...(tags.length ? { tags } : {}),
     patch_file: patchRel,
     token_cost_estimate: estimateTokens(diff),
   };
 
-  await appendChange(paths, record);
+  // Coalesce updates the record in place; otherwise append. If the target id
+  // vanished between the existence check and now, fall back to append.
+  if (coalesced) {
+    const replaced = await replaceChange(paths, record);
+    if (!replaced) await appendChange(paths, record);
+  } else {
+    await appendChange(paths, record);
+  }
 
   // Update the index: recent ids, active files, unresolved items, timestamp.
   const index = await readIndex(paths);
@@ -169,7 +229,7 @@ export async function runCapture(
   }
 
   const message = [
-    `Captured change ${id}`,
+    `${coalesced ? "Updated change" : "Captured change"} ${id}`,
     `Type: ${record.type}`,
     `Files: ${files.length} (${record.added.length} added, ${record.modified.length} modified, ${record.removed.length} removed)`,
     record.risk.length ? `Risk: ${record.risk.join(" | ")}` : `Risk: none flagged`,
@@ -181,7 +241,7 @@ export async function runCapture(
     .filter((l) => l !== null)
     .join("\n");
 
-  return { captured: true, message, changeId: id, fingerprint: fingerprintDiff(diff) };
+  return { captured: true, message, changeId: id, coalesced, fingerprint: fingerprintDiff(diff) };
 }
 
 /** MCP `capture_change` tool — unchanged external behavior. */

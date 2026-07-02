@@ -87,6 +87,12 @@ const tools = [
           description:
             "Optional agent-authored change type override (e.g. feature/fix/refactor). Omit to keep the heuristic classification.",
         },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional free-form labels for retrieval (e.g. [\"auth\", \"perf\"]). Lower-cased, de-duped and capped. They make list_changes/search_changes filterable by tag and boost ranking. Reserved for deliberate manual captures.",
+        },
       },
     },
     handler: (a: any) => captureChange(a ?? {}),
@@ -155,7 +161,7 @@ const tools = [
   {
     name: "list_changes",
     description:
-      "List recent changes as a compact table: id | type | author | file | summary. Optional file/type filters.",
+      "List recent changes as a compact table: id | type | author | file | summary. Optional file/type/branch/tag filters.",
     inputSchema: {
       type: "object",
       properties: {
@@ -164,6 +170,7 @@ const tools = [
         file: { type: "string", description: "Filter by file substring." },
         type: { type: "string", enum: CHANGE_TYPES, description: "Filter by type." },
         branch: { type: "string", description: "Filter by exact branch name." },
+        tag: { type: "string", description: "Filter by exact tag (case-insensitive)." },
       },
     },
     handler: (a: any) => listChanges(a ?? {}),
@@ -171,13 +178,14 @@ const tools = [
   {
     name: "search_changes",
     description:
-      "Search change history across id, summary, files, reason, risk and tests.",
+      "Search change history across summary, tags, reason, type, files, risk and tests. Ranked by field-weighted relevance (summary/tags weigh most) with a recency boost. Pass 'tag' to restrict to a label.",
     inputSchema: {
       type: "object",
       properties: {
         ...projectPathProp,
         query: { type: "string", description: "Search query." },
         limit: { type: "number", description: "Max results (default 20)." },
+        tag: { type: "string", description: "Restrict to changes carrying this exact tag." },
       },
       required: ["query"],
     },

@@ -4,6 +4,32 @@ All notable changes to the Change Memory plugin are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-07-02
+
+### Added
+- **Diff-aware heuristic summaries.** The offline summarizer now parses the diff
+  itself — not just file paths — and names the declarations a change touches plus
+  its `(+added/-removed)` line counts (e.g. _"Touches `runCapture`, `coalesce`
+  (+42/-8)"_). This lifts the default auto-capture summary past a bare file count
+  while keeping the no-network / no-keys guarantee; the agent-authored
+  `llmSummary` still overrides it on deliberate captures.
+- **Tags + weighted search ranking.** `capture_change` accepts an optional
+  `tags[]` (trimmed, lower-cased, de-duped, capped); `list_changes` and
+  `search_changes` take a `tag` filter. Search no longer counts flat term hits —
+  it ranks by field weight (summary and tags weigh most, then reason, type,
+  files) with a recency boost, so a change that is *about* the query outranks one
+  that merely mentions it. Schema-compatible: pre-v4 records simply omit `tags`.
+
+### Changed
+- **Auto-capture coalesces a burst into one evolving change.** While consecutive
+  auto-captures land on the same branch within `coalesce_window_ms` (default 5
+  min), the record is updated in place — same id, refreshed patch/summary/files/
+  timestamp — instead of appending a near-duplicate. This directly cuts the
+  noisy-history problem (68 entries on a tiny project). Manual `capture_change`
+  always appends a deliberate checkpoint; set `coalesce_window_ms` to 0 to disable.
+- `schema_version` bumped to 4 for the optional `tags[]` field. The bump is
+  informational — reads tolerate older records, so no migration runs.
+
 ## [0.7.0] - 2026-06-24
 
 ### Changed
