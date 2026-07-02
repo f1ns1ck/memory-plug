@@ -12,7 +12,7 @@ import {
   AUTO_STATE_FILE,
 } from "../mcp-server/dist/tools/autoCaptureChange.js";
 import { memoryPaths } from "../mcp-server/dist/utils/paths.js";
-import { readChanges } from "../mcp-server/dist/core/memoryStore.js";
+import { readChanges, readIndex, writeIndex } from "../mcp-server/dist/core/memoryStore.js";
 
 function git(cwd, ...args) {
   return execFileSync("git", args, {
@@ -47,7 +47,7 @@ test("auto_capture: nothing saved on empty working tree", async () => {
   assert.equal((await readChanges(memoryPaths(dir))).length, 0);
 });
 
-test("auto_capture: duplicate diff is deduped, new diff creates a new entry", async () => {
+test("auto_capture: duplicate diff is deduped; a follow-up diff coalesces into the same change", async () => {
   const dir = await makeRepo();
   await initMemory({ projectPath: dir });
   const paths = memoryPaths(dir);
@@ -55,6 +55,7 @@ test("auto_capture: duplicate diff is deduped, new diff creates a new entry", as
   await fs.writeFile(path.join(dir, "app.ts"), "export const x = 2\n");
   const first = await autoCaptureChange({ projectPath: dir, debounceMs: 0 });
   assert.match(first, /Auto-captured/);
+  const [rec1] = await readChanges(paths);
   assert.equal((await readChanges(paths)).length, 1);
 
   // Same diff again -> dedupe, no new entry.
@@ -62,7 +63,29 @@ test("auto_capture: duplicate diff is deduped, new diff creates a new entry", as
   assert.match(dup, /dedupe|skipped/i);
   assert.equal((await readChanges(paths)).length, 1);
 
-  // Different diff -> new entry.
+  // Different diff within the coalesce window -> updates the same evolving change,
+  // not a new entry. The id is preserved; the summary tracks the latest content.
+  await fs.writeFile(path.join(dir, "app.ts"), "export const x = 3\n");
+  const second = await autoCaptureChange({ projectPath: dir, debounceMs: 0 });
+  assert.match(second, /Auto-updated/);
+  const after = await readChanges(paths);
+  assert.equal(after.length, 1, "burst folds into one record");
+  assert.equal(after[0].id, rec1.id, "coalescing keeps the original id");
+});
+
+test("auto_capture: coalescing disabled (window 0) appends distinct entries", async () => {
+  const dir = await makeRepo();
+  await initMemory({ projectPath: dir });
+  const paths = memoryPaths(dir);
+
+  const index = await readIndex(paths);
+  index.coalesce_window_ms = 0;
+  await writeIndex(paths, index);
+
+  await fs.writeFile(path.join(dir, "app.ts"), "export const x = 2\n");
+  await autoCaptureChange({ projectPath: dir, debounceMs: 0 });
+  assert.equal((await readChanges(paths)).length, 1);
+
   await fs.writeFile(path.join(dir, "app.ts"), "export const x = 3\n");
   const second = await autoCaptureChange({ projectPath: dir, debounceMs: 0 });
   assert.match(second, /Auto-captured/);

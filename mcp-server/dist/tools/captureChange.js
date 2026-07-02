@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { resolveProjectRoot, memoryPaths } from "../utils/paths.js";
-import { ensureInitialized, readIndex, writeIndex, appendChange, recentChanges, } from "../core/memoryStore.js";
+import { ensureInitialized, readIndex, writeIndex, appendChange, replaceChange, readChanges, recentChanges, } from "../core/memoryStore.js";
 import { isGitRepo, getAuthor, getBranch, getHeadCommit } from "../core/git.js";
 import { buildWorkingTreeDiff, fingerprintDiff, } from "../core/workingTree.js";
 import { generateChangeId } from "../utils/ids.js";
@@ -13,6 +13,25 @@ import { MemoryError } from "../utils/errors.js";
 function uniq(list) {
     return [...new Set(list)];
 }
+/** Normalize agent-supplied tags: trim, lower-case, drop blanks, de-dupe, cap. */
+function sanitizeTags(tags) {
+    if (!Array.isArray(tags))
+        return [];
+    const out = [];
+    const seen = new Set();
+    for (const raw of tags) {
+        if (typeof raw !== "string")
+            continue;
+        const v = raw.trim().toLowerCase();
+        if (!v || seen.has(v))
+            continue;
+        seen.add(v);
+        out.push(v);
+        if (out.length >= 12)
+            break;
+    }
+    return out;
+}
 /**
  * Core capture routine shared by the `capture_change` tool and
  * `auto_capture_change`. Stores a compressed patch, writes a change record,
@@ -22,7 +41,7 @@ function uniq(list) {
  * git read and keeps the auto-capture fingerprint consistent with what is
  * stored). Behavior is identical whether or not `pre` is supplied.
  */
-export async function runCapture(input, pre) {
+export async function runCapture(input, pre, opts) {
     const projectRoot = resolveProjectRoot(input.projectPath);
     const paths = memoryPaths(projectRoot);
     await ensureInitialized(paths);
@@ -37,7 +56,23 @@ export async function runCapture(input, pre) {
         };
     }
     const { diff, files, nameStatus } = wt;
-    const id = generateChangeId(diff);
+    // Coalesce target: reuse the existing record's id (and patch slot) only if it
+    // still exists. Otherwise generate a fresh id and append as usual.
+    let id;
+    let coalesced = false;
+    if (opts?.replaceChangeId) {
+        const existing = await readChanges(paths);
+        if (existing.some((c) => c.id === opts.replaceChangeId)) {
+            id = opts.replaceChangeId;
+            coalesced = true;
+        }
+        else {
+            id = generateChangeId(diff);
+        }
+    }
+    else {
+        id = generateChangeId(diff);
+    }
     const timestamp = new Date().toISOString();
     const author = await getAuthor(projectRoot);
     const branch = await getBranch(projectRoot);
@@ -58,6 +93,7 @@ export async function runCapture(input, pre) {
         risk: input.llmRisk,
         type: input.llmType,
     });
+    const tags = sanitizeTags(input.tags);
     const record = {
         id,
         timestamp,
@@ -73,10 +109,20 @@ export async function runCapture(input, pre) {
         reason: input.reason?.trim() ?? "",
         risk: summary.risk,
         tests: input.tests ?? [],
+        ...(tags.length ? { tags } : {}),
         patch_file: patchRel,
         token_cost_estimate: estimateTokens(diff),
     };
-    await appendChange(paths, record);
+    // Coalesce updates the record in place; otherwise append. If the target id
+    // vanished between the existence check and now, fall back to append.
+    if (coalesced) {
+        const replaced = await replaceChange(paths, record);
+        if (!replaced)
+            await appendChange(paths, record);
+    }
+    else {
+        await appendChange(paths, record);
+    }
     // Update the index: recent ids, active files, unresolved items, timestamp.
     const index = await readIndex(paths);
     index.last_session_at = timestamp;
@@ -111,7 +157,7 @@ export async function runCapture(input, pre) {
         // Swallow — compaction is an optimization, not part of the capture contract.
     }
     const message = [
-        `Captured change ${id}`,
+        `${coalesced ? "Updated change" : "Captured change"} ${id}`,
         `Type: ${record.type}`,
         `Files: ${files.length} (${record.added.length} added, ${record.modified.length} modified, ${record.removed.length} removed)`,
         record.risk.length ? `Risk: ${record.risk.join(" | ")}` : `Risk: none flagged`,
@@ -122,7 +168,7 @@ export async function runCapture(input, pre) {
     ]
         .filter((l) => l !== null)
         .join("\n");
-    return { captured: true, message, changeId: id, fingerprint: fingerprintDiff(diff) };
+    return { captured: true, message, changeId: id, coalesced, fingerprint: fingerprintDiff(diff) };
 }
 /** MCP `capture_change` tool — unchanged external behavior. */
 export async function captureChange(input) {

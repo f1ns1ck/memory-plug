@@ -88,6 +88,68 @@ function collectRisks(files) {
     }
     return [...notes];
 }
+const MAX_SIGNAL_SYMBOLS = 4;
+// Declaration patterns across a few common languages. Each captures the symbol
+// name in group 1. Conservative on purpose: we only name things a line clearly
+// declares, so we never invent a symbol from an arbitrary code line.
+const SYMBOL_RES = [
+    /\b(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/, // JS/TS function
+    /\b(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/, // class
+    /\b(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)/, // TS interface
+    /\b(?:export\s+)?enum\s+([A-Za-z_$][\w$]*)/, // TS enum
+    /\b(?:export\s+)?type\s+([A-Za-z_$][\w$]*)\s*=/, // TS type alias
+    /\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/, // JS binding
+    /\bdef\s+([A-Za-z_$][\w$]*)/, // Python def
+    /\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_$][\w$]*)/, // Go func / method
+    /\b(?:type\s+)?struct\s+([A-Za-z_$][\w$]*)/, // struct
+];
+/**
+ * Parse a unified diff for content-level signals: how many lines changed and the
+ * names of declarations touched. Purely textual and offline — it never contacts a
+ * model. This lifts auto-capture summaries past a bare file count without breaking
+ * the no-network guarantee.
+ */
+export function extractDiffSignals(diff) {
+    let added = 0;
+    let removed = 0;
+    const symbols = [];
+    const seen = new Set();
+    for (const line of diff.split("\n")) {
+        // File-level headers carry `+`/`-` but are not content changes.
+        if (line.startsWith("+++") || line.startsWith("---"))
+            continue;
+        const isAdd = line.startsWith("+");
+        const isDel = line.startsWith("-");
+        if (!isAdd && !isDel)
+            continue;
+        if (isAdd)
+            added++;
+        else
+            removed++;
+        if (symbols.length >= MAX_SIGNAL_SYMBOLS)
+            continue;
+        const content = line.slice(1);
+        for (const re of SYMBOL_RES) {
+            const m = re.exec(content);
+            if (m && m[1] && !seen.has(m[1])) {
+                seen.add(m[1]);
+                symbols.push(m[1]);
+                if (symbols.length >= MAX_SIGNAL_SYMBOLS)
+                    break;
+            }
+        }
+    }
+    return { added, removed, symbols };
+}
+/** Render diff signals as a short clause, or "" when there is nothing to add. */
+function describeSignals(sig) {
+    const counts = sig.added || sig.removed ? `(+${sig.added}/-${sig.removed})` : "";
+    if (sig.symbols.length) {
+        const names = sig.symbols.map((s) => `\`${s}\``).join(", ");
+        return counts ? `Touches ${names} ${counts}.` : `Touches ${names}.`;
+    }
+    return counts ? `Net ${counts}.` : "";
+}
 // --- Summary text --------------------------------------------------------------
 function describeFiles(files) {
     if (files.length === 0)
@@ -133,6 +195,9 @@ export class HeuristicSummarizer {
         const areas = topAreas(input.files);
         const areaText = areas.length ? ` in ${areas.join(", ")}` : "";
         let summary = `${capitalize(type)} change: ${counts}${areaText} (${describeFiles(input.files)}).`;
+        const signals = describeSignals(extractDiffSignals(input.diff));
+        if (signals)
+            summary += ` ${signals}`;
         if (input.reason && input.reason.trim()) {
             summary += ` Reason: ${input.reason.trim()}.`;
         }

@@ -1,6 +1,6 @@
 {
   "name": "change-memory",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Compact, local memory of what changed in your project across Claude Code sessions. Stores semantic summaries, changed files, unresolved issues, risks and compressed patches without loading full diffs into context by default.",
   "author": {
     "name": "f1ns1ck"

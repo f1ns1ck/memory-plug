@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { resolveProjectRoot, memoryPaths } from "../utils/paths.js";
-import { isInitialized } from "../core/memoryStore.js";
-import { isGitRepo } from "../core/git.js";
+import { isInitialized, readIndex, readChanges } from "../core/memoryStore.js";
+import { isGitRepo, getBranch } from "../core/git.js";
+import { DEFAULT_COALESCE_WINDOW_MS } from "../core/types.js";
 import { buildWorkingTreeDiff, fingerprintDiff } from "../core/workingTree.js";
 import { runCapture } from "./captureChange.js";
 
@@ -120,8 +121,36 @@ export async function autoCaptureChange(input: AutoCaptureChangeInput): Promise<
     }
   }
 
+  // Coalesce: while consecutive auto-captures land on the same branch within the
+  // configured window, fold them into one evolving change instead of appending a
+  // near-duplicate. Best-effort — any failure here just means a normal append.
+  let replaceChangeId: string | undefined;
+  try {
+    const index = await readIndex(paths);
+    const windowMs =
+      typeof index.coalesce_window_ms === "number"
+        ? index.coalesce_window_ms
+        : DEFAULT_COALESCE_WINDOW_MS;
+    if (windowMs > 0 && state.last_change_id && state.last_capture_at) {
+      const sinceLast = now - Date.parse(state.last_capture_at);
+      if (Number.isFinite(sinceLast) && sinceLast < windowMs) {
+        const last = (await readChanges(paths)).find((c) => c.id === state.last_change_id);
+        if (last) {
+          const branch = await getBranch(projectRoot);
+          if ((last.branch ?? "") === (branch ?? "")) replaceChangeId = last.id;
+        }
+      }
+    }
+  } catch {
+    // Coalescing is an optimization; never let it block a capture.
+  }
+
   // Capture, reusing the diff we already computed.
-  const result = await runCapture({ projectPath: projectRoot, reason: autoReason(input) }, wt);
+  const result = await runCapture(
+    { projectPath: projectRoot, reason: autoReason(input) },
+    wt,
+    { replaceChangeId },
+  );
   if (!result.captured) {
     return skip(result.message);
   }
@@ -136,7 +165,7 @@ export async function autoCaptureChange(input: AutoCaptureChangeInput): Promise<
 
   if (asHook) return hookOutput();
   return [
-    `Auto-captured ${result.changeId}`,
+    `${result.coalesced ? "Auto-updated" : "Auto-captured"} ${result.changeId}`,
     input.sourceTool ? `Trigger: ${input.sourceTool}${input.sourceFile ? ` (${input.sourceFile})` : ""}` : null,
     ``,
     result.message,

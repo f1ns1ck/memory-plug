@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { SCHEMA_VERSION, DEFAULT_CONSTRAINTS, DEFAULT_MAX_BOOTSTRAP_TOKENS, DEFAULT_MAX_RECENT_CHANGES, DEFAULT_AUTO_COMPACT_AFTER_CHANGES, DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS, } from "./types.js";
+import { SCHEMA_VERSION, DEFAULT_CONSTRAINTS, DEFAULT_MAX_BOOTSTRAP_TOKENS, DEFAULT_MAX_RECENT_CHANGES, DEFAULT_AUTO_COMPACT_AFTER_CHANGES, DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS, DEFAULT_COALESCE_WINDOW_MS, } from "./types.js";
 import { notInitialized } from "../utils/errors.js";
 /** True when `.change-memory/index.json` exists. */
 export async function isInitialized(paths) {
@@ -31,6 +31,7 @@ export function newIndex(projectName, now) {
         share_patches: false,
         auto_compact_after_changes: DEFAULT_AUTO_COMPACT_AFTER_CHANGES,
         auto_compact_older_than_days: DEFAULT_AUTO_COMPACT_OLDER_THAN_DAYS,
+        coalesce_window_ms: DEFAULT_COALESCE_WINDOW_MS,
     };
 }
 export async function readIndex(paths) {
@@ -71,6 +72,21 @@ export async function readChanges(paths) {
 export async function writeChanges(paths, changes) {
     const body = changes.map((c) => JSON.stringify(c)).join("\n");
     await fs.writeFile(paths.changesFile, body.length ? body + "\n" : "", "utf8");
+}
+/**
+ * Replace an existing change (matched by id) in place, preserving its position
+ * in history. Used by auto-capture coalescing to fold a burst of edits into one
+ * evolving record. Returns true when a record was replaced, false when the id is
+ * absent (e.g. compacted away) so the caller can fall back to appending.
+ */
+export async function replaceChange(paths, change) {
+    const changes = await readChanges(paths);
+    const idx = changes.findIndex((c) => c.id === change.id);
+    if (idx === -1)
+        return false;
+    changes[idx] = change;
+    await writeChanges(paths, changes);
+    return true;
 }
 /** Most recent `limit` changes (newest first). */
 export async function recentChanges(paths, limit) {

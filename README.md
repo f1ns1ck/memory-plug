@@ -155,12 +155,12 @@ what changed and why** — without you re-explaining it.
 | Tool | Purpose |
 | --- | --- |
 | `init_memory` | Create `.change-memory/` for the project. |
-| `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. Accepts optional agent-authored `llmSummary`/`llmRisk`/`llmType` (host model, no network) that override the heuristic. |
+| `capture_change` | Snapshot the current `git diff` (incl. untracked files) → compressed patch + semantic summary. Accepts optional agent-authored `llmSummary`/`llmRisk`/`llmType` (host model, no network) and `tags[]`. |
 | `configure` | Adjust settings: `autoCapture` (per-machine toggle) and/or `sharePatches` (team-wide via `index.json`). Omit a field to leave it unchanged; omit both to query. |
 | `get_session_context` | Return the compact markdown snapshot. **Never includes full diffs.** |
 | `show_change` | Show one change's metadata; the full patch with `includePatch: true`, or a single file's hunk with `file: "<substring>"`. |
-| `list_changes` | Compact table: `id \| type \| file \| summary`. |
-| `search_changes` | Search id, summary, files, reason, risk, tests, branch, commit. |
+| `list_changes` | Compact table: `id \| type \| file \| summary`. Optional `file`/`type`/`branch`/`tag` filters. |
+| `search_changes` | Field-weighted search (summary/tags weigh most) with a recency boost, across summary, tags, reason, type, files, risk, tests. Optional `tag` filter. |
 | `summarize_branch` | PR-ready markdown summary of a branch's changes, grouped by type, with files/risks/tests. |
 | `compact_memory` | Archive old changes into a summary; keep recent ones; preserve patches. |
 
