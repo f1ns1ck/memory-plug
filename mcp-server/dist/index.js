@@ -39,7 +39,7 @@ const tools = [
     },
     {
         name: "capture_change",
-        description: "Capture the current working-tree git diff: store a compressed patch, generate a semantic summary, append to changes.jsonl, and refresh the compact session snapshot. Does not commit or modify user code.",
+        description: "Capture the current working-tree git diff: store a compressed patch, generate a semantic summary, append to changes.jsonl, and refresh the compact session snapshot. Does not commit or modify user code. With enrichChangeId, it instead applies agent-authored fields to that existing record in place (lazy enrichment).",
         inputSchema: {
             type: "object",
             properties: {
@@ -78,6 +78,10 @@ const tools = [
                     type: "array",
                     items: { type: "string" },
                     description: "Optional free-form labels for retrieval (e.g. [\"auth\", \"perf\"]). Lower-cased, de-duped and capped. They make list_changes/search_changes filterable by tag and boost ranking. Reserved for deliberate manual captures.",
+                },
+                enrichChangeId: {
+                    type: "string",
+                    description: "Enrich an existing record instead of capturing: apply llmSummary (required) plus optional llmRisk/llmType/tags to this change id in place — same id, patch and timestamp — and mark it enriched. Use for records listed under 'Awaiting Enrichment' in the session snapshot.",
                 },
             },
         },

@@ -30,33 +30,27 @@ improving retrieval over weak summaries.
   into one evolving change (update-in-place) within `coalesce_window_ms` (0.8.0).
 - ✅ Tags + weighted search ranking — optional `tags[]`, `tag` filters on `list`/`search`,
   and field-weighted scoring (summary/tags first) with a recency boost (0.8.0).
+- ✅ Automatic session bootstrap — a `SessionStart` hook injects the compact snapshot
+  into context at session start / after `/clear`; `/memory-session` no longer needs
+  to be run by hand (0.9.0).
+- ✅ Lazy host-model enrichment of auto-captures — heuristic-only records carry
+  `enriched: false`, the snapshot lists them under **Awaiting Enrichment**, and
+  `capture_change({ enrichChangeId, llmSummary, ... })` upgrades one in place (0.9.0).
+- ✅ Retrieval evaluation harness — `test/retrievalBenchmark.test.mjs` runs a fixed
+  query set over real heuristic summaries and asserts top-1 accuracy ≥ 80% (0.9.0).
+- ✅ Whole-word search matching — "auth" no longer hits "author"; camelCase
+  identifiers split so "cache" still finds `cacheStore.ts` (0.9.0).
 
 ## Capture quality (core)
 
-- **Lazy host-model enrichment of auto-captures** _(target 0.9.0)_. Diff-aware
-  heuristics (0.8.0) lifted the default summary past a file count, but the richest
-  semantic summary (`llmSummary`) still only reaches deliberate manual captures — the
-  `PostToolUse` hook is a detached CLI with no model access. The fix keeps the hook
-  heuristic and enriches **after the fact**: on the next session load, surface recent
-  heuristic-only records to the host model (via `get_session_context` / a skill
-  prompt), let the agent write `llmSummary`/`llmRisk`/`llmType`, and update those
-  records in place through the existing `capture_change` enrichment path —
-  `mergeAgentSummary` already merges agent-over-heuristic. The server still makes no
-  network call and holds no keys. Steps: (a) mark records `enriched: false` at
-  heuristic capture; (b) a retrieval/skill step that lists the un-enriched recent
-  records; (c) reuse `mergeAgentSummary` to apply the agent fields and flip the flag.
-- **Define "capture quality solved."** The trigger that gates offline embeddings (see
-  _Decided against_) needs a measurable bar. Anchor it to the retrieval harness below:
-  _on heuristic-only summaries, a fixed query set retrieves the intended change as the
-  top result ≥ 80% of the time._ Until that holds, keep lifting capture, not retrieval.
+- **Hold the "capture quality solved" bar.** The trigger that gates offline embeddings
+  (see _Decided against_) is measurable now: the retrieval benchmark asserts that on
+  heuristic-only summaries a fixed query set retrieves the intended change top-1
+  ≥ 80% of the time, and it currently passes on the fixture set. Next: grow the
+  fixture/query set from real-world histories so the bar stays honest as it scales.
 
 ## Retrieval quality
 
-- **Retrieval evaluation harness** _(target 0.9.0)_. Promote
-  `test/captureRetrievalQuality.test.mjs` into a small fixture-based benchmark
-  (query → expected top change) so ranking changes are measured, not eyeballed. This
-  is the measurement backbone for both the capture-quality bar above and any future
-  ranking work.
 - **Surface tags + scores in session bootstrap** _(target 0.10.0)_. The 0.8.0 tags and
   weighted score exist but aren't shown at session load; expose them, and consider a
   `search_changes` relevance threshold so weak matches drop out instead of padding the
@@ -122,35 +116,28 @@ improving retrieval over weak summaries.
   `coalesce_window_ms` (0.8.0).
 - ✅ Теги + взвешенное ранжирование — опциональные `tags[]`, фильтр `tag` в `list`/`search`
   и взвешенный по полям скоринг (summary/tags важнее) с бонусом за свежесть (0.8.0).
+- ✅ Автоматический bootstrap сессии — хук `SessionStart` инжектит компактный снимок
+  в контекст при старте сессии / после `/clear`; `/memory-session` больше не нужно
+  запускать руками (0.9.0).
+- ✅ Ленивое обогащение авто-захватов моделью хоста — записи с одной эвристикой несут
+  `enriched: false`, снимок перечисляет их в секции **Awaiting Enrichment**, а
+  `capture_change({ enrichChangeId, llmSummary, ... })` обновляет запись на месте (0.9.0).
+- ✅ Харнесс оценки извлечения — `test/retrievalBenchmark.test.mjs` гоняет фиксированный
+  набор запросов по настоящим эвристическим сводкам и требует top-1 точность ≥ 80% (0.9.0).
+- ✅ Матчинг по целым словам — «auth» больше не цепляет «author»; camelCase-идентификаторы
+  разбиваются, так что «cache» по-прежнему находит `cacheStore.ts` (0.9.0).
 
 ## Качество захвата (ядро)
 
-- **Ленивое обогащение авто-захватов моделью хоста** _(цель 0.9.0)_. Diff-aware
-  эвристика (0.8.0) подняла дефолтную сводку выше числа файлов, но самый богатый
-  семантический `llmSummary` по-прежнему доступен только осознанным ручным захватам —
-  хук `PostToolUse` это детачнутый CLI без доступа к модели. Решение оставляет хук
-  эвристическим и обогащает **постфактум**: при следующей загрузке сессии показать
-  модели хоста свежие записи с одной лишь эвристикой (через `get_session_context` /
-  промпт скилла), дать агенту написать `llmSummary`/`llmRisk`/`llmType` и обновить эти
-  записи на месте через уже существующий путь обогащения `capture_change` —
-  `mergeAgentSummary` уже мёржит «агент поверх эвристики». Сервер по-прежнему не делает
-  сетевых вызовов и не хранит ключей. Шаги: (a) помечать записи `enriched: false` при
-  эвристическом захвате; (b) шаг извлечения/скилла, перечисляющий необогащённые свежие
-  записи; (c) переиспользовать `mergeAgentSummary`, чтобы применить поля агента и
-  переключить флаг.
-- **Определить, что значит «качество захвата решено».** Триггер, открывающий офлайн-
-  эмбеддинги (см. _Решено не делать_), нуждается в измеримой планке. Привязать её к
-  харнессу извлечения ниже: _на сводках только из эвристики фиксированный набор запросов
-  возвращает нужное изменение первым результатом ≥ 80% случаев._ Пока не достигнуто —
-  поднимаем захват, а не извлечение.
+- **Удерживать планку «качество захвата решено».** Триггер, открывающий офлайн-
+  эмбеддинги (см. _Решено не делать_), теперь измерим: бенчмарк извлечения требует,
+  чтобы на сводках только из эвристики фиксированный набор запросов возвращал нужное
+  изменение первым результатом ≥ 80% случаев — и сейчас он проходит на наборе фикстур.
+  Дальше: наращивать фикстуры/запросы из реальных историй, чтобы планка оставалась
+  честной с ростом масштаба.
 
 ## Качество извлечения
 
-- **Харнесс оценки извлечения** _(цель 0.9.0)_. Превратить
-  `test/captureRetrievalQuality.test.mjs` в небольшой бенчмарк на фикстурах
-  (запрос → ожидаемое верхнее изменение), чтобы изменения ранжирования измерялись, а не
-  оценивались на глаз. Это измерительная основа и для планки качества захвата выше, и
-  для будущей работы над ранжированием.
 - **Показывать теги + скоринг в bootstrap сессии** _(цель 0.10.0)_. Теги и взвешенный
   скоринг из 0.8.0 есть, но не показываются при загрузке сессии; вывести их и обдумать
   порог релевантности в `search_changes`, чтобы слабые совпадения отсеивались, а не
